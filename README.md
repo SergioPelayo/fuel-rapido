@@ -1,4 +1,4 @@
-# ⛽ Fuel Rápido
+# Fuel Rápido
 
 **La gasolinera más barata cerca de ti, en dos segundos y sin tocar nada.**
 
@@ -21,7 +21,7 @@ ir hasta allí con Google Maps.
 | **Lista ultrarrápida** | Al abrir, geolocaliza y muestra la más barata en grande, con el ahorro estimado por depósito y el botón **Navegar**. |
 | **14 combustibles** | Gasolina 95/98 (E5, E10, Premium), Gasóleo A, Premium y B, GLP, GNC, GNL, biodiésel, bioetanol e hidrógeno. |
 | **Radio configurable** | 3, 5, 10, 20, 50 o 100 km en línea recta. |
-| **Tres ordenaciones** | 💶 **Precio** · 📍 **Cerca** · 🧠 **Ahorro real** (descuenta el combustible que gastas en el desvío de ida y vuelta, con tu consumo y el tamaño de tu depósito). |
+| **Tres ordenaciones** | **Precio** · **Cerca** · **Ahorro real** (descuenta el combustible que gastas en el desvío de ida y vuelta, con tu consumo y el tamaño de tu depósito). |
 | **Abierto ahora** | Interpreta el horario oficial (`L-D: 24H`, `L-V: 07:00-22:00; S: 08:00-14:00`, horarios partidos…) y filtra las cerradas. |
 | **Mapa** | Leaflet + OpenStreetMap, con chinchetas de color según el precio. Leaflet va incluido en el repo, así que no depende de ningún CDN. |
 | **Sin ubicación** | Si prefieres no dar el GPS, en *Ajustes* puedes buscar por municipio. |
@@ -268,6 +268,19 @@ Las que no están en la tabla reciben un color estable derivado de su nombre, as
 una misma estación siempre sale igual. El color del texto (blanco o negro) se calcula
 por luminancia para que siempre tenga contraste.
 
+### La marca de la app
+
+`assets/icono.svg` — un surtidor con la flecha de «precio a la baja», dibujado para
+leerse a **22 px** en la cabecera. De ahí salen también el favicon y los iconos de la
+PWA (`icons/`), así que cabecera, pestaña del navegador y pantalla de inicio del móvil
+llevan la misma marca.
+
+Se descartaron los emoji (⛽ 📊 💶 📍) a propósito: cada sistema operativo los dibuja a
+su manera, así que el mismo icono se veía distinto en Android, iPhone y escritorio.
+
+Si prefieres el surtidor sin la flecha, el repo incluye `assets/icono-sin-flecha.svg`:
+renómbralo a `icono.svg` y vuelve a generar los PNG.
+
 ### El logo de Pelayo Ingeniería Digital
 
 Aparece en la **pantalla de arranque**, mientras la app localiza y descarga precios.
@@ -306,16 +319,17 @@ tengan instalada se actualicen.
 
 ## Tests
 
-Tres baterías de comprobaciones automáticas, **127 en total**:
+Tres baterías de comprobaciones automáticas, **131 en total**:
 
 - `npm run test:snapshot` (25) — el recolector: detección de cambios, comillas del CSV,
   estaciones nuevas, ruido de redondeo y las salvaguardas ante respuestas anómalas.
 - `npm run test:series` (30) — simula 10 días de capturas sobre 60 estaciones y verifica
   las series por estación, la reconstrucción de cierres diarios, las estadísticas de
   30 días y los agregados de mercado (sin duplicar días al reejecutar).
-- `npm run test:web` (72) — la app en un navegador sin interfaz: orden por
+- `npm run test:web` (76) — la app en un navegador sin interfaz: orden por
   precio/distancia/ahorro, radios, filtros, parser de horarios, enlaces de navegación,
-  mapa, caché, pantalla de arranque, distintivos de marca y sus colores, medidor de
+  mapa, caché, pantalla de arranque, marca propia sin emojis, distintivos de cadena y
+  sus colores, medidor de
   precio, ficha de estación con su gráfico y tooltip, panel de mercado completo y el
   respaldo `data/` con el Ministerio caído.
 
@@ -341,6 +355,7 @@ fuel-rapido/
 ├── mercado.html             Panel de mercado (página aparte)
 ├── viz.js                   Gráficos en SVG puro, sin librerías
 ├── marcas.js                Colores y distintivos de las cadenas
+├── assets/icono.svg         Marca de la app (cabecera, favicon, iconos PWA)
 ├── assets/logo-pid.svg      Logo de Pelayo Ingeniería Digital (pantalla de arranque)
 ├── scripts/snapshot.mjs     Recolector del histórico de precios
 ├── data/                    Lo genera el recolector (catálogo, precios, series, mercado)

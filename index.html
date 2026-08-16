@@ -7,7 +7,8 @@
 <meta name="description" content="Encuentra la gasolinera más barata cerca de ti en segundos. Datos oficiales del Ministerio. Gratis y sin registro.">
 <title>Fuel Rápido — la gasolinera más barata cerca de ti</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" type="image/svg+xml" href="assets/icono.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,7 +22,7 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="logo" aria-hidden="true">⛽</span>
+    <img class="logo" src="assets/icono.svg" alt="" width="30" height="30">
     <div>
       <h1>Fuel Rápido</h1>
       <p id="statusLine" class="status">Buscando tu ubicación…</p>
@@ -43,10 +44,10 @@
     </select>
   </div>
   <div class="row chips" role="group" aria-label="Ordenar y filtrar">
-    <button class="chip is-active" data-sort="precio">💶 Precio</button>
-    <button class="chip" data-sort="distancia">📍 Cerca</button>
-    <button class="chip" data-sort="ahorro">🧠 Ahorro real</button>
-    <button class="chip" id="chipOpen" data-filter="abierto">🕐 Abierto</button>
+    <button class="chip is-active" data-sort="precio">Precio</button>
+    <button class="chip" data-sort="distancia">Cerca</button>
+    <button class="chip" data-sort="ahorro">Ahorro real</button>
+    <button class="chip" id="chipOpen" data-filter="abierto">Abierto</button>
   </div>
 </nav>
 
@@ -90,7 +91,7 @@
       <p>Cómo se está moviendo el precio del combustible en toda España: evolución diaria,
         provincias más baratas y ranking de marcas.</p>
       <a class="nav-btn" href="mercado.html" style="width:100%;justify-content:center;padding:13px">
-        📊 Ver el panel de mercado</a>
+        Ver el panel de mercado</a>
 
       <h2>Datos</h2>
       <p id="dataMeta" class="muted">—</p>

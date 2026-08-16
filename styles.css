@@ -37,7 +37,7 @@ button,select,input{font-family:inherit}
   background:linear-gradient(180deg,#0b0f14 70%,rgba(11,15,20,0));
 }
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
-.logo{font-size:26px;line-height:1}
+.logo{width:30px;height:30px;display:block;flex:0 0 auto}
 .topbar h1{margin:0;font-size:19px;letter-spacing:-.2px}
 .status{margin:2px 0 0;font-size:12.5px;color:var(--txt-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
 .status.err{color:var(--warn)}

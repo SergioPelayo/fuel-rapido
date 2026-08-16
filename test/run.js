@@ -285,6 +285,19 @@ function check(name, cond, extra = '') {
   await page.waitForTimeout(300);
   check('La ficha se cierra', !(await page.isVisible('#sheet.is-open')));
 
+  console.log('\n--- Identidad de la app ---');
+  const logo = await page.getAttribute('.topbar .logo', 'src');
+  check('La cabecera lleva una marca propia en SVG, no un emoji',
+        logo === 'assets/icono.svg', logo);
+  check('Se sirve y se pinta de verdad (no es un enlace roto)',
+        await page.$eval('.topbar .logo', img => img.complete && img.naturalWidth > 0));
+  const emojis = await page.$$eval('.chip, .tabbar button',
+    e => e.map(x => x.textContent).filter(t => /[\u{1F300}-\u{1FAFF}]/u.test(t)));
+  check('Sin emojis en los controles', emojis.length === 0, emojis.join(' '));
+  const fav = await page.$$eval('link[rel="icon"]', e => e.map(x => x.getAttribute('href')));
+  check('Favicon en SVG con respaldo PNG',
+        fav.includes('assets/icono.svg') && fav.some(h => h.endsWith('.png')), fav.join(' | '));
+
   console.log('\n--- Capa visual: marcas, medidor y resumen ---');
   const marcasVistas = await page.$$eval('.card > .marca, #hero .marca',
     e => e.map(x => x.textContent.trim()));
