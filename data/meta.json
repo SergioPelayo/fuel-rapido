@@ -1,9 +1,9 @@
 {
-  "fechaMinisterio": "16/08/2026 12:09:53",
-  "capturado": "2026-08-16T10:10:16.355Z",
-  "estaciones": 11455,
-  "cambiosEnEstaCaptura": 447,
-  "estacionesNuevas": 1,
+  "fechaMinisterio": "16/08/2026 13:08:56",
+  "capturado": "2026-08-16T11:09:30.537Z",
+  "estaciones": 11452,
+  "cambiosEnEstaCaptura": 1457,
+  "estacionesNuevas": 0,
   "primeraCaptura": false,
   "fuente": "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/",
   "licencia": "Datos del Ministerio para la Transición Ecológica y el Reto Demográfico. Reutilización citando fuente y fecha de actualización."
