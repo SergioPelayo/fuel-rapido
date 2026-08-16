@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="description" content="Encuentra la gasolinera más barata cerca de ti en segundos. Datos oficiales del Ministerio. Gratis y sin registro.">
+<title>Fuel Rápido — la gasolinera más barata cerca de ti</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">⛽</span>
+    <div>
+      <h1>Fuel Rápido</h1>
+      <p id="statusLine" class="status">Buscando tu ubicación…</p>
+    </div>
+  </div>
+  <button id="btnRefresh" class="icon-btn" title="Actualizar precios y ubicación" aria-label="Actualizar">⟳</button>
+</header>
+
+<nav class="controls">
+  <div class="row" role="group" aria-label="Tipo de combustible">
+    <select id="fuelSelect" class="select" aria-label="Combustible"></select>
+    <select id="radiusSelect" class="select" aria-label="Radio de búsqueda">
+      <option value="3">3 km</option>
+      <option value="5">5 km</option>
+      <option value="10" selected>10 km</option>
+      <option value="20">20 km</option>
+      <option value="50">50 km</option>
+      <option value="100">100 km</option>
+    </select>
+  </div>
+  <div class="row chips" role="group" aria-label="Ordenar y filtrar">
+    <button class="chip is-active" data-sort="precio">💶 Precio</button>
+    <button class="chip" data-sort="distancia">📍 Cerca</button>
+    <button class="chip" data-sort="ahorro">🧠 Ahorro real</button>
+    <button class="chip" id="chipOpen" data-filter="abierto">🕐 Abierto</button>
+  </div>
+</nav>
+
+<main>
+  <section id="panelList" class="panel">
+    <div id="hero" class="hero hidden"></div>
+    <div id="list" class="list"></div>
+    <div id="empty" class="empty hidden"></div>
+  </section>
+
+  <section id="panelMap" class="panel hidden">
+    <div id="map"></div>
+  </section>
+
+  <section id="panelInfo" class="panel hidden">
+    <div class="info">
+      <h2>Cómo funciona</h2>
+      <p>Fuel Rápido usa los precios oficiales de todas las estaciones de servicio de España, publicados por el
+        <strong>Ministerio para la Transición Ecológica y el Reto Demográfico</strong> a través de su portal de datos
+        abiertos. Se actualizan cada media hora aproximadamente y son los mismos que la estación está obligada a cobrar.</p>
+      <p>No hay registro, ni cuentas, ni claves de API, ni publicidad. Tu ubicación <strong>nunca sale de tu
+        teléfono</strong>: el cálculo de distancias se hace en el propio navegador.</p>
+
+      <h2>Ajustes</h2>
+      <label class="field">
+        <span>Capacidad del depósito (litros)</span>
+        <input id="tankInput" type="number" min="10" max="200" step="5" value="50" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span>Consumo medio (L/100 km) — para el «ahorro real»</span>
+        <input id="consumptionInput" type="number" min="2" max="30" step="0.5" value="7" inputmode="decimal">
+      </label>
+      <label class="field">
+        <span>Buscar por municipio (si no quieres dar tu ubicación)</span>
+        <input id="townInput" type="search" placeholder="Ej. Algeciras" autocomplete="off">
+      </label>
+      <div id="townResults" class="town-results"></div>
+
+      <h2>Datos</h2>
+      <p id="dataMeta" class="muted">—</p>
+      <button id="btnPurge" class="secondary-btn">Borrar caché y recargar datos</button>
+
+      <p class="muted small">Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico ·
+        Mapa: OpenStreetMap · Los precios son orientativos, confirma siempre en el surtidor.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button class="tab is-active" data-panel="panelList">Lista</button>
+  <button class="tab" data-panel="panelMap">Mapa</button>
+  <button class="tab" data-panel="panelInfo">Ajustes</button>
+</nav>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

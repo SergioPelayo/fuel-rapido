@@ -1,0 +1,53 @@
+name: Capturar precios (histórico)
+
+on:
+  schedule:
+    # Cada hora en punto (hora UTC). GitHub puede retrasar la ejecución unos
+    # minutos si hay cola; el script guarda la hora real de la captura.
+    - cron: '0 * * * *'
+  workflow_dispatch:        # permite lanzarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+jobs:
+  capturar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Descargar y comparar precios
+        id: snap
+        run: node scripts/snapshot.mjs
+
+      - name: Guardar en el repositorio
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "Sin cambios que guardar."
+            exit 0
+          fi
+          git config user.name  "fuel-rapido-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "Precios ${{ steps.snap.outputs.estaciones }} estaciones, ${{ steps.snap.outputs.cambios }} cambios"
+          # Reintento por si otra ejecución ha escrito mientras tanto
+          for i in 1 2 3; do
+            git pull --rebase --autostash && git push && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Resumen
+        if: always()
+        run: |
+          echo "### Captura de precios" >> $GITHUB_STEP_SUMMARY
+          echo "- Estaciones: ${{ steps.snap.outputs.estaciones }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cambios de precio: ${{ steps.snap.outputs.cambios }}" >> $GITHUB_STEP_SUMMARY
