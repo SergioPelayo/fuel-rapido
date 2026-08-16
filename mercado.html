@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="description" content="Cómo se mueve el precio del combustible en España: evolución diaria, provincias más baratas y ranking de marcas. Datos oficiales del Ministerio.">
+<title>Panel de mercado — Fuel Rápido</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="pagina-mercado">
+
+<nav class="controls" style="padding-top:12px">
+  <a class="volver" href="index.html">‹ Volver a la lista</a>
+</nav>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">📊</span>
+    <div>
+      <h1>Panel de mercado</h1>
+      <p id="statusLine" class="status">Cargando el histórico…</p>
+    </div>
+  </div>
+</header>
+
+<nav class="controls">
+  <div class="row">
+    <select id="fuelSelect" class="select" aria-label="Combustible"></select>
+  </div>
+</nav>
+
+<main class="mercado">
+  <div id="vacio" class="mercado-vacio hidden"></div>
+  <div id="panel" class="hidden">
+
+    <div class="kpis">
+      <div class="kpi">
+        <span class="lab">Media nacional</span>
+        <span class="val" id="kpiMedia">—</span>
+        <span class="delta" id="kpiMediaDelta"></span>
+      </div>
+      <div class="kpi">
+        <span class="lab">La más barata de España</span>
+        <span class="val" id="kpiMin">—</span>
+        <span class="delta" id="kpiMinDelta"></span>
+      </div>
+    </div>
+
+    <section class="bloque">
+      <h2 id="tit1">Evolución nacional</h2>
+      <p class="nota">Media de todas las estaciones frente a la más barata del país, día a día.</p>
+      <div id="graf1" class="viz"></div>
+      <div class="viz-leyenda" id="leg1"></div>
+      <button class="viz-toggle" data-tabla="tab1">Ver como tabla</button>
+      <div id="tab1" hidden></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Comparativa entre combustibles</h2>
+      <p class="nota">Media nacional diaria de cada carburante.</p>
+      <div id="graf2" class="viz"></div>
+      <div class="viz-leyenda" id="leg2"></div>
+      <button class="viz-toggle" data-tabla="tab2">Ver como tabla</button>
+      <div id="tab2" hidden></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Provincias más baratas</h2>
+      <p class="nota" id="nota3">Media provincial del último día registrado.</p>
+      <div id="graf3"></div>
+      <button class="viz-toggle" data-tabla="tab3">Ver como tabla</button>
+      <div id="tab3" hidden></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Marcas más baratas</h2>
+      <p class="nota">Media de cada rótulo en el último día registrado. Sólo marcas con al menos 5 estaciones.</p>
+      <div id="graf4"></div>
+      <button class="viz-toggle" data-tabla="tab4">Ver como tabla</button>
+      <div id="tab4" hidden></div>
+    </section>
+
+    <p class="muted small" style="margin-top:18px;line-height:1.6">
+      Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico.
+      Última actualización de los datos: <span id="ultimaAct">—</span>.
+      Series construidas por este mismo repositorio desde la primera captura.
+    </p>
+  </div>
+</main>
+
+<script src="marcas.js"></script>
+<script src="viz.js"></script>
+<script>
+'use strict';
+
+const FUELS = [
+  { id: 'g95e5', label: 'Gasolina 95 E5' },
+  { id: 'gA',    label: 'Gasóleo A' },
+  { id: 'gP',    label: 'Gasóleo Premium' },
+  { id: 'g98e5', label: 'Gasolina 98 E5' },
+  { id: 'glp',   label: 'GLP (autogas)' }
+];
+/* Paleta validada sobre superficie #161f2c (ver viz.js) */
+const COL = { media: '#3987e5', minimo: '#1f9d57' };
+const COL_FUEL = ['#3987e5', '#d95926', '#199e70', '#c98500'];
+
+const $ = s => document.querySelector(s);
+const eur = (v, d = 3) => v.toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
+const diaMs = d => Date.parse(d + 'T00:00:00Z');
+
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (c !== '\r') cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.length > 1 || r[0] !== '');
+}
+
+const objetos = txt => {
+  const rows = parseCsv(txt);
+  const head = rows.shift();
+  return rows.map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+};
+
+const D = {};   // nacional, provincias, marcas
+let fuel = 'g95e5';
+
+async function baja(ruta) {
+  const res = await fetch(ruta);
+  if (!res.ok) throw new Error(ruta + ': ' + res.status);
+  return objetos(await res.text());
+}
+
+function sinDatos(msg) {
+  $('#panel').classList.add('hidden');
+  const v = $('#vacio');
+  v.classList.remove('hidden');
+  v.innerHTML = msg;
+  $('#statusLine').textContent = 'Sin histórico todavía';
+}
+
+/* ---------- Pintado ---------- */
+
+function pinta() {
+  const nac = D.nacional.filter(r => r.combustible === fuel)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  if (nac.length < 1) {
+    sinDatos('No hay datos de este combustible todavía.<br>Prueba con otro o vuelve mañana.');
+    return;
+  }
+  $('#panel').classList.remove('hidden');
+  $('#vacio').classList.add('hidden');
+
+  const hoy = nac.at(-1);
+  const label = FUELS.find(f => f.id === fuel).label;
+  $('#tit1').textContent = 'Evolución nacional · ' + label;
+  $('#ultimaAct').textContent = new Date(diaMs(hoy.fecha)).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('#statusLine').textContent = `${nac.length} ${nac.length === 1 ? 'día registrado' : 'días registrados'} · ${hoy.estaciones} estaciones`;
+
+  /* KPIs */
+  const hace7 = nac[Math.max(0, nac.length - 8)];
+  const delta = (ahora, antes, el) => {
+    const d = Number(ahora) - Number(antes);
+    const n = $(el);
+    if (nac.length < 2) { n.textContent = 'Sin comparación todavía'; n.className = 'delta igual'; return; }
+    const cent = Math.abs(d) * 100;
+    n.textContent = Math.abs(d) < 0.0005
+      ? 'Igual que hace ' + (nac.length - 1) + ' días'
+      : `${d > 0 ? '▲' : '▼'} ${cent.toFixed(1)} céntimos en ${Math.min(7, nac.length - 1)} días`;
+    n.className = 'delta ' + (Math.abs(d) < 0.0005 ? 'igual' : d > 0 ? 'sube' : 'baja');
+  };
+  $('#kpiMedia').innerHTML = eur(Number(hoy.media)) + '<small> €/L</small>';
+  $('#kpiMin').innerHTML = eur(Number(hoy.min)) + '<small> €/L</small>';
+  delta(hoy.media, hace7.media, '#kpiMediaDelta');
+  delta(hoy.min, hace7.min, '#kpiMinDelta');
+
+  /* 1. Media vs mínimo */
+  const s1 = [
+    { nombre: 'Media', color: COL.media, puntos: nac.map(r => ({ x: diaMs(r.fecha), y: Number(r.media) })) },
+    { nombre: 'La más barata', color: COL.minimo, puntos: nac.map(r => ({ x: diaMs(r.fecha), y: Number(r.min) })) }
+  ];
+  Viz.lineas($('#graf1'), { series: s1, alto: 200, descripcion: 'Media nacional frente al precio más bajo del país' });
+  leyenda('#leg1', s1);
+  tablaPara('#tab1', ['Día', 'Media', 'Mínimo', 'Estaciones'],
+    [...nac].reverse().map(r => [new Date(diaMs(r.fecha)).toLocaleDateString('es-ES'), eur(+r.media), eur(+r.min), r.estaciones]));
+
+  /* 2. Comparativa entre combustibles (4 primeros, con etiquetas directas) */
+  const s2 = FUELS.slice(0, 4).map((f, i) => {
+    const d = D.nacional.filter(r => r.combustible === f.id).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    return { nombre: f.label, color: COL_FUEL[i], puntos: d.map(r => ({ x: diaMs(r.fecha), y: Number(r.media) })) };
+  }).filter(s => s.puntos.length);
+  Viz.lineas($('#graf2'), { series: s2, alto: 210, etiquetasDirectas: false, descripcion: 'Media nacional diaria por combustible' });
+  leyenda('#leg2', s2);
+  const dias = [...new Set(D.nacional.map(r => r.fecha))].sort().reverse();
+  tablaPara('#tab2', ['Día', ...s2.map(s => s.nombre)],
+    dias.map(d => [new Date(diaMs(d)).toLocaleDateString('es-ES'),
+      ...FUELS.slice(0, 4).filter((f, i) => s2[i]).map(f => {
+        const r = D.nacional.find(x => x.fecha === d && x.combustible === f.id);
+        return r ? eur(+r.media) : '—';
+      })]));
+
+  /* 3. Provincias */
+  const ultimo = hoy.fecha;
+  const miProv = (localStorage.getItem('fr.prov') || '').toUpperCase();
+  const provs = D.provincias.filter(r => r.combustible === fuel && r.fecha === ultimo)
+    .map(r => ({ etiqueta: capital(r.provincia), valor: Number(r.media), n: r.estaciones,
+                 destacado: r.provincia.toUpperCase() === miProv }))
+    .sort((a, b) => a.valor - b.valor);
+  $('#nota3').textContent = miProv
+    ? `Media provincial del ${new Date(diaMs(ultimo)).toLocaleDateString('es-ES')}. Tu provincia aparece destacada.`
+    : `Media provincial del ${new Date(diaMs(ultimo)).toLocaleDateString('es-ES')}.`;
+  const top = provs.slice(0, 15);
+  if (miProv && !top.some(p => p.destacado)) {
+    const mia = provs.find(p => p.destacado);
+    if (mia) top.push(mia);
+  }
+  Viz.barras($('#graf3'), {
+    items: top.map(p => ({ ...p, detalle: `${p.n} estaciones` })),
+    formatoValor: v => eur(v) + ' €'
+  });
+  tablaPara('#tab3', ['Provincia', '€/L', 'Estaciones'],
+    provs.map(p => [p.etiqueta, eur(p.valor), p.n]));
+
+  /* 4. Marcas */
+  const marcas = D.marcas.filter(r => r.combustible === fuel && r.fecha === ultimo)
+    .map(r => ({ etiqueta: capital(r.marca), valor: Number(r.media), n: r.estaciones }))
+    .sort((a, b) => a.valor - b.valor);
+  Viz.barras($('#graf4'), {
+    items: marcas.slice(0, 15).map(m => ({ ...m, distintivo: true, detalle: `${m.n} estaciones` })),
+    formatoValor: v => eur(v) + ' €'
+  });
+  tablaPara('#tab4', ['Marca', '€/L', 'Estaciones'],
+    marcas.map(m => [m.etiqueta, eur(m.valor), m.n]));
+}
+
+function leyenda(sel, series) {
+  const box = $(sel);
+  box.replaceChildren();
+  series.forEach(s => {
+    const w = document.createElement('span');
+    const k = document.createElement('span');
+    k.className = 'viz-key'; k.style.background = s.color;
+    const t = document.createElement('span'); t.textContent = s.nombre;
+    w.append(k, t);
+    box.appendChild(w);
+  });
+}
+
+function tablaPara(sel, columnas, filas) {
+  const host = $(sel);
+  host.dataset.pendiente = JSON.stringify({ columnas, filas });
+  if (!host.hidden) Viz.tabla(host, { columnas, filas });
+}
+
+const capital = s => String(s || '').toLowerCase()
+  .replace(/(^|[\s(\/-])([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase());
+
+/* ---------- Arranque ---------- */
+
+(async () => {
+  $('#fuelSelect').innerHTML = FUELS.map(f => `<option value="${f.id}">${f.label}</option>`).join('');
+  $('#fuelSelect').addEventListener('change', e => { fuel = e.target.value; pinta(); });
+
+  document.querySelectorAll('.viz-toggle').forEach(b => {
+    b.addEventListener('click', () => {
+      const host = $('#' + b.dataset.tabla);
+      host.hidden = !host.hidden;
+      b.textContent = host.hidden ? 'Ver como tabla' : 'Ocultar tabla';
+      if (!host.hidden && host.dataset.pendiente) Viz.tabla(host, JSON.parse(host.dataset.pendiente));
+    });
+  });
+
+  try {
+    const [nacional, provincias, marcas] = await Promise.all([
+      baja('data/market/nacional.csv'),
+      baja('data/market/provincias.csv').catch(() => []),
+      baja('data/market/marcas.csv').catch(() => [])
+    ]);
+    Object.assign(D, { nacional, provincias, marcas });
+    if (!nacional.length) throw new Error('vacío');
+    pinta();
+  } catch (e) {
+    sinDatos(
+      'El panel se construye con el histórico que captura este repositorio cada hora.<br><br>' +
+      'Todavía no hay datos suficientes. Activa el workflow <strong>«Capturar precios»</strong> ' +
+      'en la pestaña Actions de GitHub y vuelve dentro de un rato.'
+    );
+  }
+})();
+</script>
+</body>
+</html>

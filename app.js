@@ -487,9 +487,22 @@ function navUrl(s) {
 function showEmpty(html) {
   $('#list').innerHTML = '';
   $('#hero').classList.add('hidden');
+  $('#resumen').classList.add('hidden');
   const e = $('#empty');
   e.innerHTML = html;
   e.classList.remove('hidden');
+}
+
+/* La marca sólo se va cuando ya hay algo que enseñar, con un mínimo de
+   700 ms para que no dé un pantallazo, y un tope de 6 s por si algo se atasca. */
+function cerrarSplash() {
+  const s = $('#splash');
+  if (!s || s.classList.contains('se-va')) return;
+  const falta = Math.max(0, 700 - (Date.now() - (window.__arranque || 0)));
+  setTimeout(() => {
+    s.classList.add('se-va');
+    setTimeout(() => s.remove(), 500);
+  }, falta);
 }
 
 function render() {
@@ -511,22 +524,31 @@ function render() {
 
   const prices = rows.map(r => r.price);
   const min = Math.min(...prices);
+  const max = Math.max(...prices);
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
   const best = rows[0];
 
   /* --- Destacado --- */
   const savePerTank = (avg - best.price) * state.tank;
   hero.classList.remove('hidden');
+  hero.dataset.i = 0;
   hero.innerHTML = `
     <div class="kicker">${sortKicker()}</div>
-    <p class="name">${esc(best.s.name)}</p>
-    <p class="addr">${esc(best.s.addr)} · ${esc(best.s.town)} · a ${fmtDist(best.dist)}</p>
+    <div class="cabecera">
+      ${Marcas.html(best.s.name, 48)}
+      <div style="min-width:0">
+        <p class="name">${esc(best.s.name)}</p>
+        <p class="addr">${esc(best.s.town)} · a ${fmtDist(best.dist)}</p>
+      </div>
+    </div>
+    ${distintivo(best) ? `<div class="tags" style="margin-top:9px">${distintivo(best)}</div>` : ''}
     <div class="bottom">
       <div>
         <div class="price">${eur(best.price)}<small> €/L</small></div>
         ${savePerTank > 0.05
           ? `<div class="save">Ahorras ≈ ${eur(savePerTank, 2)} € por depósito de ${state.tank} L</div>`
           : `<div class="save">La más barata de la zona</div>`}
+        <div class="hint">Toca para ver su histórico</div>
       </div>
       <a class="nav-btn" href="${navUrl(best.s)}" target="_blank" rel="noopener">▶ Navegar</a>
     </div>`;
@@ -537,18 +559,28 @@ function render() {
     if (i === 0) return;
     const card = document.createElement('article');
     card.className = 'card';
+    card.dataset.i = i;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `${r.s.name}, ${eur(r.price)} euros por litro. Ver su histórico`);
     const delta = r.price - min;
     const openTag = r.open === null ? ''
       : r.open ? '<span class="tag open">Abierto</span>'
                : '<span class="tag closed">Cerrado ahora</span>';
+    // Medidor como puntuación: barra llena = la más barata del radio
+    const pos = max === min ? 0 : (r.price - min) / (max - min);
+    const lleno = (1 - pos) * 97 + 3;
+    const colorPos = pos < 0.34 ? '#1f9d57' : pos < 0.67 ? '#c98500' : '#d95926';
+
     card.innerHTML = `
+      ${Marcas.html(r.s.name, 38)}
       <div class="info-col">
         <div class="rank">#${i + 1}</div>
         <p class="name">${esc(r.s.name)}</p>
         <p class="meta">${esc(r.s.addr)}<br>${esc(r.s.town)} · ${fmtDist(r.dist)}</p>
         <div class="tags">
           ${openTag}
-          ${delta === 0 ? '<span class="tag cheap">Más barata</span>' : ''}
+          ${distintivo(r)}
           <span class="tag">${esc(r.s.sched || 'Horario n/d')}</span>
         </div>
       </div>
@@ -558,13 +590,29 @@ function render() {
           <div class="delta">${delta === 0 ? '—' : '+' + eur(delta) + ' €/L'}</div>
         </div>
         <a class="nav-btn" href="${navUrl(r.s)}" target="_blank" rel="noopener">Navegar</a>
+      </div>
+      <div class="medidor" title="Lo barata que está respecto al resto de tu radio">
+        <i style="width:${lleno.toFixed(1)}%;background:${colorPos}"></i>
       </div>`;
     frag.appendChild(card);
   });
   list.innerHTML = '';
   list.appendChild(frag);
 
+  // Tira de contexto: de un vistazo, cuánto se mueve el precio en tu zona
+  const res = $('#resumen');
+  res.classList.remove('hidden');
+  res.innerHTML =
+    `<span><b>${rows.length}</b> estaciones en ${state.radius} km</span>` +
+    `<span class="sep">·</span>` +
+    `<span>de <b>${eur(min)}</b> a <b>${eur(max)}</b> €/L</span>` +
+    (max - min > 0.001
+      ? `<span class="sep">·</span><span>hasta <b>${eur((max - min) * state.tank, 2)} €</b> de diferencia por depósito</span>`
+      : '');
+
   setStatus(`${rows.length} estaciones · ${state.origin.label} · ${state.radius} km`);
+  // El panel de mercado usa esto para destacar tu provincia en el ranking
+  if (best.s.prov) save('fr.prov', best.s.prov.toUpperCase());
   if (state.mapReady) drawMap();
 }
 
@@ -574,6 +622,212 @@ function sortKicker() {
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------- 9b. Ficha de estación: su historia de precios ---------- */
+
+const COLOR_SERIE = '#1f9d57';   // validado sobre la superficie #161f2c
+
+function seriePath(id) {
+  return `data/series/${String(id).padStart(2, '0').slice(-2)}/${id}.csv`;
+}
+
+/* Mismo criterio que el recolector: entre dos cambios el precio se mantiene,
+   así que se arrastra el último conocido hasta el siguiente cambio. */
+function cierresDiarios(eventos, dias) {
+  if (!eventos.length) return [];
+  const porDia = new Map();
+  for (const e of eventos) porDia.set(e.ts.slice(0, 10), e.precio);
+
+  const hoy = new Date();
+  const finMs = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+  const iniMs = finMs - (dias - 1) * 86400000;
+  const primero = eventos[0].ts.slice(0, 10);
+
+  let vigente = null;
+  for (const e of eventos) {
+    if (e.ts.slice(0, 10) < new Date(iniMs).toISOString().slice(0, 10)) vigente = e.precio; else break;
+  }
+
+  const out = [];
+  for (let t = iniMs; t <= finMs; t += 86400000) {
+    const dia = new Date(t).toISOString().slice(0, 10);
+    if (porDia.has(dia)) vigente = porDia.get(dia);
+    if (vigente !== null && dia >= primero) out.push({ x: t, y: vigente });
+  }
+  return out;
+}
+
+async function cargarSerie(id, fuel) {
+  const txt = await grab(seriePath(id), 'text');
+  const rows = parseCsv(txt);
+  rows.shift();
+  return rows
+    .filter(r => r[1] === fuel)
+    .map(r => ({ ts: r[0], precio: dec(r[2]) }))
+    .filter(e => e.precio !== null);
+}
+
+function abrirFicha(r) {
+  const s = r.s;
+  const fuelLabel = FUELS.find(f => f.id === state.fuel)?.label || '';
+
+  const cab = $('#sheetNombre');
+  const nom = document.createElement('span');
+  nom.className = 'nombre';
+  nom.textContent = s.name;
+  cab.replaceChildren(Marcas.chip(s.name, 34), nom);
+  $('#sheetSub').textContent =
+    `${s.addr} · ${s.town} · a ${fmtDist(r.dist)}` + (s.sched ? ` · ${s.sched}` : '');
+  $('#sheetNav').href = navUrl(s);
+
+  const cuerpo = $('#sheetCuerpo');
+  cuerpo.replaceChildren();
+  const cargando = document.createElement('p');
+  cargando.className = 'viz-vacio';
+  cargando.textContent = 'Cargando su histórico…';
+  cuerpo.appendChild(cargando);
+
+  $('#sheetFondo').classList.add('is-open');
+  $('#sheet').classList.add('is-open');
+  $('#sheetCerrar').focus();
+
+  cargarSerie(s.id, state.fuel).then(eventos => {
+    const serie = cierresDiarios(eventos, 90);
+    cuerpo.replaceChildren();
+
+    if (serie.length < 2) {
+      const p = document.createElement('p');
+      p.className = 'viz-vacio';
+      p.textContent = serie.length
+        ? 'Su histórico acaba de empezar: mañana ya habrá curva que enseñar.'
+        : 'Todavía no hay histórico de esta estación.';
+      cuerpo.appendChild(p);
+      return;
+    }
+
+    // El gráfico enseña 90 días; el veredicto y las cifras usan los últimos 30,
+    // igual que stats.csv, para que la ficha y el distintivo de la lista digan lo mismo.
+    const corte = Date.now() - 30 * 86400000;
+    const v30 = serie.filter(p => p.x >= corte).map(p => p.y);
+    const v = v30.length >= 2 ? v30 : serie.map(p => p.y);
+    const min = Math.min(...v), max = Math.max(...v);
+    const media = v.reduce((a, b) => a + b, 0) / v.length;
+    const actual = r.price;
+    const pct = ((actual - media) / media) * 100;
+
+    // Veredicto: lo que el conductor quiere saber en una frase
+    const ver = document.createElement('div');
+    ver.className = 'veredicto ' + (pct <= -1.5 ? 'barata' : pct >= 1.5 ? 'cara' : '');
+    const ic = document.createElement('span');
+    ic.className = 'icono';
+    const txt = document.createElement('span');
+    if (actual <= min) {
+      ic.textContent = '↓';
+      txt.textContent = `Está en su precio más bajo de los últimos ${v.length} días.`;
+    } else if (pct <= -1.5) {
+      ic.textContent = '↓';
+      txt.textContent = `Hoy está un ${Math.abs(pct).toFixed(1)} % por debajo de su media. Buen momento.`;
+    } else if (pct >= 1.5) {
+      ic.textContent = '↑';
+      txt.textContent = `Hoy está un ${pct.toFixed(1)} % por encima de su media. Suele estar más barata.`;
+    } else {
+      ic.textContent = '=';
+      txt.textContent = 'Está en su precio habitual.';
+    }
+    ver.append(ic, txt);
+    cuerpo.appendChild(ver);
+
+    const tiles = document.createElement('div');
+    tiles.className = 'tiles';
+    [['Hoy', actual], [`Mín. ${v.length} d`, min], [`Máx. ${v.length} d`, max]].forEach(([lab, val]) => {
+      const d = document.createElement('div');
+      d.className = 'tile';
+      const l = document.createElement('span'); l.className = 'lab'; l.textContent = lab;
+      const x = document.createElement('span'); x.className = 'val'; x.textContent = eur(val) + ' €';
+      d.append(l, x);
+      tiles.appendChild(d);
+    });
+    cuerpo.appendChild(tiles);
+
+    const secc = document.createElement('div');
+    secc.className = 'sheet-secc';
+    const h3 = document.createElement('h3');
+    h3.textContent = `${fuelLabel} en esta estación · últimos ${serie.length} días`;
+    const graf = document.createElement('div');
+    graf.className = 'viz';
+    secc.append(h3, graf);
+
+    const btn = document.createElement('button');
+    btn.className = 'viz-toggle';
+    btn.textContent = 'Ver como tabla';
+    const tabla = document.createElement('div');
+    tabla.hidden = true;
+    btn.addEventListener('click', () => {
+      tabla.hidden = !tabla.hidden;
+      btn.textContent = tabla.hidden ? 'Ver como tabla' : 'Ocultar tabla';
+      if (!tabla.hidden && !tabla.dataset.hecha) {
+        Viz.tabla(tabla, {
+          columnas: ['Día', '€/L'],
+          filas: [...serie].reverse().map(p =>
+            [new Date(p.x).toLocaleDateString('es-ES'), eur(p.y)])
+        });
+        tabla.dataset.hecha = '1';
+      }
+    });
+    secc.append(btn, tabla);
+    cuerpo.appendChild(secc);
+
+    Viz.lineas(graf, {
+      series: [{ nombre: fuelLabel, color: COLOR_SERIE, puntos: serie }],
+      area: true,
+      descripcion: `Evolución del precio de ${fuelLabel} en ${s.name}`,
+      formatoEtiqueta: y => eur(y)
+    });
+  }).catch(() => {
+    cuerpo.replaceChildren();
+    const p = document.createElement('p');
+    p.className = 'viz-vacio';
+    p.textContent = 'El histórico aún no está disponible. Se genera con el recolector horario del repositorio.';
+    cuerpo.appendChild(p);
+  });
+}
+
+function cerrarFicha() {
+  $('#sheetFondo').classList.remove('is-open');
+  $('#sheet').classList.remove('is-open');
+}
+
+/* ---------- 9c. Distintivos «barata para lo que suele estar» ---------- */
+
+async function cargarStats() {
+  if (state.stats || state.statsFallo) return;
+  try {
+    const txt = await grab('data/stats.csv', 'text');
+    const rows = parseCsv(txt);
+    rows.shift();
+    const m = new Map();
+    for (const r of rows) {
+      const media = dec(r[5]), min = dec(r[3]), dias = Number(r[6]);
+      if (media === null || dias < 5) continue;
+      m.set(r[0] + '|' + r[1], { min, media, dias });
+    }
+    state.stats = m;
+    if (m.size) render();
+  } catch (e) {
+    state.statsFallo = true;
+  }
+}
+
+function distintivo(r) {
+  if (!state.stats) return '';
+  const st = state.stats.get(r.s.id + '|' + state.fuel);
+  if (!st) return '';
+  if (r.price <= st.min) return '<span class="tag cheap">↓ Su mínimo en 30 días</span>';
+  const pct = ((r.price - st.media) / st.media) * 100;
+  if (pct <= -1.5) return `<span class="tag cheap">↓ ${Math.abs(pct).toFixed(0)} % bajo su media</span>`;
+  if (pct >= 2.5) return `<span class="tag closed">↑ ${pct.toFixed(0)} % sobre su media</span>`;
+  return '';
 }
 
 /* ---------- 10. Mapa (Leaflet + OpenStreetMap, carga diferida) ---------- */
@@ -632,9 +886,10 @@ function drawMap() {
   state.results.slice(0, MAX_RESULTS).forEach(r => {
     const t = max === min ? 0 : (r.price - min) / (max - min);
     const bg = t < .34 ? '#37d67a' : t < .67 ? '#ffb020' : '#ff5c5c';
+    const marca = Marcas.de(r.s.name);
     const icon = L.divIcon({
       className: '',
-      html: `<div class="map-pin" style="background:${bg}">${eur(r.price)}</div>`,
+      html: `<div class="map-pin" style="background:${bg};border-color:${marca.color}">${eur(r.price)}</div>`,
       iconSize: [46, 20], iconAnchor: [23, 10]
     });
     L.marker([r.s.lat, r.s.lon], { icon }).addTo(state.mapLayer).bindPopup(
@@ -758,6 +1013,23 @@ function wire() {
     render();
   });
 
+  // Abrir la ficha: toda la tarjeta es pulsable menos el botón de navegar
+  const abrirDesde = ev => {
+    if (ev.target.closest('.nav-btn')) return;
+    const cont = ev.target.closest('[data-i]');
+    if (!cont) return;
+    const r = state.results[Number(cont.dataset.i)];
+    if (r) abrirFicha(r);
+  };
+  $('#list').addEventListener('click', abrirDesde);
+  $('#hero').addEventListener('click', abrirDesde);
+  $('#list').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirDesde(ev); }
+  });
+  $('#sheetCerrar').addEventListener('click', cerrarFicha);
+  $('#sheetFondo').addEventListener('click', cerrarFicha);
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrarFicha(); });
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - state.fetchedAt > CACHE_MAX_AGE_MS) {
       loadData();
@@ -766,6 +1038,8 @@ function wire() {
 }
 
 async function init() {
+  window.__arranque = Date.now();
+  setTimeout(cerrarSplash, 6000);          // red de seguridad
   buildFuelSelect();
   $('#radiusSelect').value = String(state.radius);
   document.querySelectorAll('.chip[data-sort]').forEach(b =>
@@ -785,6 +1059,12 @@ async function init() {
   }
   updateMeta();
   render();
+  cerrarSplash();
+
+  // Los distintivos «barata para lo que suele estar» son un extra: se cargan
+  // cuando el navegador está ocioso y nunca retrasan la primera pantalla.
+  const luego = window.requestIdleCallback || (f => setTimeout(f, 1500));
+  luego(() => cargarStats());
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});

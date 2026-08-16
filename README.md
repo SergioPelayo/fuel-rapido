@@ -27,6 +27,10 @@ ir hasta allí con Google Maps.
 | **Sin ubicación** | Si prefieres no dar el GPS, en *Ajustes* puedes buscar por municipio. |
 | **Excluye lo que no te sirve** | Estaciones de venta restringida (flotas, cooperativas) y registros sin coordenadas válidas. |
 | **Histórico propio** | Un workflow captura los precios cada hora y acumula en el repo sólo los que cambian. Ver [El histórico de precios](#el-histórico-de-precios). |
+| **Ficha de estación** | Tocas una gasolinera y ves su curva de precios, su mínimo y su máximo, y si hoy está cara o barata **respecto a sí misma**. |
+| **Panel de mercado** | Página aparte (`mercado.html`) con la evolución nacional, el ranking de provincias y el de marcas. |
+| **Distintivo por cadena** | Cada gasolinera luce el color corporativo de su marca, así que la reconoces sin leer. |
+| **Medidor de precio** | Una barra en cada tarjeta: llena y verde si es de las baratas de tu radio, corta y roja si es de las caras. |
 
 ---
 
@@ -46,8 +50,9 @@ Tiempo estimado: **5 minutos**. No hace falta instalar nada.
 2. **Sube los archivos.**
    En la pantalla que aparece, pulsa **uploading an existing file**.
    Arrastra **todo el contenido** de la carpeta `fuel-rapido` (no la carpeta en sí):
-   `index.html`, `app.js`, `styles.css`, `sw.js`, `manifest.webmanifest`, `.nojekyll`,
-   y las carpetas `icons/`, `vendor/`, `scripts/`, `test/`, `.github/`.
+   `index.html`, `mercado.html`, `app.js`, `viz.js`, `marcas.js`, `styles.css`, `sw.js`,
+   `manifest.webmanifest`, `.nojekyll`, y las carpetas `assets/`, `icons/`, `vendor/`,
+   `scripts/`, `test/`, `.github/`.
    > Si el navegador no te deja arrastrar carpetas, sube primero los archivos sueltos y
    > después repite el proceso arrastrando cada carpeta.
 
@@ -164,8 +169,22 @@ data/
 │                                   id, rótulo, dirección, municipio, provincia, lat, lon, horario, venta
 ├── prices.csv                      Precios vigentes — también sirve de respaldo a la app
 ├── meta.json                       Fecha del Ministerio, hora de captura, nº de cambios
-└── history/2026/2026-08-16.csv     ts, id, combustible, precio
+├── history/2026/2026-08-16.csv     ts, id, combustible, precio  (el histórico nacional)
+├── series/45/12345.csv             ts, combustible, precio      (la serie de UNA estación)
+├── stats.csv                       id, combustible, actual, min30, max30, media30, dias
+└── market/
+    ├── nacional.csv                fecha, combustible, estaciones, min, media, mediana, max
+    ├── provincias.csv              fecha, provincia, combustible, estaciones, media, min
+    └── marcas.csv                  fecha, marca, combustible, estaciones, media, min
 ```
+
+**Por qué hay dos copias del histórico.** `history/` es el fichero para explotar los
+datos en bloque (todo lo que cambió un día); `series/` es el índice para la app, repartido
+en 100 carpetas por los dos últimos dígitos del id. Gracias a eso, dibujar la curva de una
+gasolinera cuesta **una petición de 2 KB** en lugar de descargar el histórico entero.
+
+`stats.csv` y `market/` son resúmenes recalculados en cada pasada: alimentan los
+distintivos de la lista y el panel de mercado sin que el navegador tenga que procesar nada.
 
 La clave está en el fichero de histórico: **sólo guarda los precios que han cambiado**.
 De 12.000 estaciones cambian unos pocos miles de precios al día, no 12.000 cada hora. Eso
@@ -175,8 +194,8 @@ mantiene el repositorio en unas decenas de MB al año en vez de varios GB, y hac
 ### Reconstruir la serie de una estación
 
 ```bash
-# Evolución de la gasolina 95 en la estación 1234
-grep ',1234,g95e5,' data/history/2026/*.csv
+# Toda la historia de la estación 1234, en un solo fichero
+cat data/series/34/1234.csv
 ```
 
 o en Python:
@@ -193,6 +212,8 @@ serie = h[(h.id == 1234) & (h.combustible == 'g95e5')].set_index('ts').precio
   **aborta sin escribir nada** (evita machacar el catálogo por un fallo puntual del origen).
 - Reintenta la descarga 4 veces con espera creciente antes de darse por vencido.
 - Ignora las variaciones por debajo de 0,0005 €/L, para no llenar el histórico de ruido.
+- Si el recolector se ejecuta dos veces el mismo día, los agregados de mercado **sustituyen**
+  la fila de ese día en lugar de duplicarla.
 
 ### Ejecutarlo en local
 
@@ -200,6 +221,63 @@ serie = h[(h.id == 1234) & (h.combustible == 'g95e5')].set_index('ts').precio
 npm run snapshot                                   # descarga real
 FUEL_SOURCE=./test/mock.json npm run snapshot      # con datos de prueba
 ```
+
+---
+
+## La ficha de estación y el panel de mercado
+
+Ambas cosas viven del histórico: **hasta que el recolector no lleve un par de días
+corriendo no tendrán gran cosa que enseñar**, y lo dicen claramente en pantalla en vez
+de mostrar un gráfico vacío.
+
+- **Ficha de estación** — toca cualquier tarjeta de la lista. Se abre un panel con su
+  curva de precios (90 días), su mínimo y su máximo de 30 días, y una frase que responde a
+  lo único que importa: *¿está hoy cara o barata para lo que suele estar?* Cada gráfico
+  lleva su vista de tabla, así que ningún dato queda escondido detrás del ratón.
+- **Distintivos en la lista** — con `stats.csv` cargado, las estaciones que están por
+  debajo de su media habitual salen marcadas. Se descarga en segundo plano y nunca
+  retrasa la primera pantalla.
+- **Panel de mercado** (`mercado.html`) — media nacional frente a la más barata del país,
+  comparativa entre combustibles, y rankings de provincias y marcas. Si la app ya conoce
+  tu provincia, aparece destacada en el ranking.
+
+La paleta de los gráficos está verificada para daltonismo y contraste sobre el fondo
+oscuro de la app (separación CVD ΔE ≥ 8 y contraste ≥ 3:1 en todas las series).
+
+---
+
+## Marca e identidad visual
+
+### Los distintivos de las cadenas
+
+Cada estación se muestra con un distintivo circular en el **color corporativo de su
+cadena** (Repsol naranja, Ballenoil amarillo, Plenoil azul…), definido en `marcas.js`.
+
+**No son los logotipos oficiales, y es deliberado**: son marcas registradas y
+empaquetarlas en un repositorio público —más aún si el proyecto se explota
+comercialmente— es un problema legal. El distintivo propio se reconoce igual de rápido,
+pesa cero, no depende de servidores ajenos y no infringe nada.
+
+Añadir una cadena es una línea:
+
+```js
+'NUEVA CADENA': ['#0055aa', 'NC'],   // color corporativo, iniciales
+```
+
+Las que no están en la tabla reciben un color estable derivado de su nombre, así que
+una misma estación siempre sale igual. El color del texto (blanco o negro) se calcula
+por luminancia para que siempre tenga contraste.
+
+### El logo de Pelayo Ingeniería Digital
+
+Aparece en la **pantalla de arranque**, mientras la app localiza y descarga precios.
+Se quita sola en cuanto hay lista que enseñar, con un mínimo de 0,7 s para que no
+dé un pantallazo y un tope de 6 s por si algo se atasca.
+
+El archivo es `assets/logo-pid.svg`. **Es una reconstrucción vectorial**, hecha para
+fondo oscuro. Si tienes el original en SVG, sustituye ese archivo por el tuyo y
+listo — no hay que tocar nada más. Si sólo lo tienes en PNG, cámbialo por
+`assets/logo-pid.png` y ajusta el `src` en `index.html`.
 
 ---
 
@@ -228,18 +306,23 @@ tengan instalada se actualicen.
 
 ## Tests
 
-Dos baterías de comprobaciones automáticas, **61 en total**:
+Tres baterías de comprobaciones automáticas, **127 en total**:
 
 - `npm run test:snapshot` (25) — el recolector: detección de cambios, comillas del CSV,
   estaciones nuevas, ruido de redondeo y las salvaguardas ante respuestas anómalas.
-- `npm run test:web` (36) — la app en un navegador sin interfaz con datos simulados:
-  orden por precio/distancia/ahorro, radios, filtros, parser de horarios, enlaces de
-  navegación, mapa, caché y el respaldo `data/` con el Ministerio caído.
+- `npm run test:series` (30) — simula 10 días de capturas sobre 60 estaciones y verifica
+  las series por estación, la reconstrucción de cierres diarios, las estadísticas de
+  30 días y los agregados de mercado (sin duplicar días al reejecutar).
+- `npm run test:web` (72) — la app en un navegador sin interfaz: orden por
+  precio/distancia/ahorro, radios, filtros, parser de horarios, enlaces de navegación,
+  mapa, caché, pantalla de arranque, distintivos de marca y sus colores, medidor de
+  precio, ficha de estación con su gráfico y tooltip, panel de mercado completo y el
+  respaldo `data/` con el Ministerio caído.
 
 ```bash
 npm install
 npx playwright install chromium
-npm test           # ejecuta las dos
+npm test           # ejecuta las tres
 ```
 
 ---
@@ -255,8 +338,12 @@ fuel-rapido/
 ├── manifest.webmanifest     Instalable como app
 ├── icons/                   Iconos 192/512 + maskable
 ├── vendor/leaflet/          Leaflet 1.9.4 incluido (sin CDN)
+├── mercado.html             Panel de mercado (página aparte)
+├── viz.js                   Gráficos en SVG puro, sin librerías
+├── marcas.js                Colores y distintivos de las cadenas
+├── assets/logo-pid.svg      Logo de Pelayo Ingeniería Digital (pantalla de arranque)
 ├── scripts/snapshot.mjs     Recolector del histórico de precios
-├── data/                    Lo genera el recolector (catálogo, precios, histórico)
+├── data/                    Lo genera el recolector (catálogo, precios, series, mercado)
 ├── test/                    Tests automáticos (recolector + Playwright)
 ├── .github/workflows/
 │   ├── deploy.yml           Despliegue a Pages (opcional)

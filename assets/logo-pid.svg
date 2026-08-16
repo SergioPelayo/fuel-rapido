@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="96 46 1230 512" role="img"
+     aria-label="Pelayo Ingeniería Digital — tu compañero de negocios">
+  <title>Pelayo Ingeniería Digital</title>
+  <desc>Reconstrucción vectorial para fondo oscuro. Sustitúyelo por el archivo oficial si lo tienes en SVG.</desc>
+  <defs>
+    <linearGradient id="pidMarco" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38a9e8"/><stop offset="47%" stop-color="#38a9e8"/>
+      <stop offset="57%" stop-color="#e5a92a"/><stop offset="100%" stop-color="#e5a92a"/>
+    </linearGradient>
+    <path id="pidOnda" d="M262,50 C236,150 292,200 266,262 C242,322 284,356 258,470"/>
+    <clipPath id="pidIzq">
+      <path d="M110,50 C236,150 292,200 266,262 C242,322 284,356 258,470 L110,470 Z"/>
+    </clipPath>
+    <clipPath id="pidDer">
+      <path d="M262,50 C236,150 292,200 266,262 C242,322 284,356 258,470 L410,470 L410,50 Z"/>
+    </clipPath>
+    <clipPath id="pidCaja"><rect x="126" y="78" width="264" height="376" rx="30"/></clipPath>
+  </defs>
+
+  <!-- Isotipo: una huella dactilar partida en dos — lo humano y lo digital -->
+  <g clip-path="url(#pidCaja)">
+    <g clip-path="url(#pidIzq)">
+    <ellipse cx="258" cy="268" rx="12" ry="26" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="266" rx="24" ry="44" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="264" rx="37" ry="61" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="261" rx="49" ry="78" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="259" rx="62" ry="96" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="257" rx="74" ry="114" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="255" rx="86" ry="131" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="253" rx="99" ry="148" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="250" rx="111" ry="166" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="248" rx="124" ry="184" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    <ellipse cx="258" cy="246" rx="136" ry="201" fill="none" stroke="#38a9e8" stroke-width="5.5"/>
+    </g>
+    <g clip-path="url(#pidDer)">
+    <ellipse cx="258" cy="268" rx="12" ry="26" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="266" rx="24" ry="44" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="264" rx="37" ry="61" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="261" rx="49" ry="78" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="259" rx="62" ry="96" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="257" rx="74" ry="114" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="255" rx="86" ry="131" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="253" rx="99" ry="148" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="250" rx="111" ry="166" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="248" rx="124" ry="184" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    <ellipse cx="258" cy="246" rx="136" ry="201" fill="none" stroke="#e5a92a" stroke-width="5.5"/>
+    </g>
+  </g>
+  <text font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" font-weight="700" letter-spacing="3.5" fill="#e5a92a"
+        paint-order="stroke" stroke="#0b0f14" stroke-width="7" stroke-linejoin="round">
+    <textPath href="#pidOnda" startOffset="9%">01010000 1001001 01000100</textPath>
+  </text>
+  <rect x="126" y="78" width="264" height="376" rx="30" fill="none" stroke="url(#pidMarco)" stroke-width="9"/>
+
+  <!-- Logotipo -->
+  <text x="905" y="392" text-anchor="middle" font-size="300" letter-spacing="26"
+        font-family="Georgia, 'Times New Roman', 'Noto Serif', serif">
+    <tspan fill="#38a9e8">P</tspan><tspan fill="#ffffff">I</tspan><tspan fill="#e5a92a">D</tspan>
+  </text>
+
+  <text x="905" y="306" text-anchor="middle" textLength="760" lengthAdjust="spacing"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="49"
+        paint-order="stroke" stroke="#0b0f14" stroke-width="14" stroke-linejoin="round">
+    <tspan fill="#38a9e8">PELAYO</tspan><tspan fill="#ffffff"> INGENIERÍA</tspan><tspan fill="#e5a92a"> DIGITAL</tspan>
+  </text>
+
+  <text x="905" y="510" text-anchor="middle" textLength="620" lengthAdjust="spacing" fill="#dfe7f2"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="60">Tu compañero de negocios.</text>
+</svg>

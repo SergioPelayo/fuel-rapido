@@ -53,11 +53,11 @@ console.log('\n--- Primera captura ---');
 console.log('  ' + run(base));
 let m = meta();
 check('Marca primeraCaptura', m.primeraCaptura === true);
-check('8 estaciones válidas (descarta la de coordenadas 0,0)', m.estaciones === 8, String(m.estaciones));
+check('12 estaciones válidas (descarta la de coordenadas 0,0)', m.estaciones === 12, String(m.estaciones));
 check('Registra la fecha del Ministerio', m.fechaMinisterio === '16/08/2026 8:00:00', m.fechaMinisterio);
 
 const st = readCsv('stations.csv');
-check('stations.csv con cabecera y 8 filas', st.length === 9, st.length - 1 + ' filas');
+check('stations.csv con cabecera y 12 filas', st.length === 13, st.length - 1 + ' filas');
 check('Cabecera correcta', st[0] === 'id,rotulo,direccion,municipio,provincia,lat,lon,horario,venta', st[0]);
 check('Conserva la venta restringida en el catálogo (la filtra la app, no el histórico)',
       st.some(l => l.includes('FLOTA SL') && l.trim().endsWith(',R')));

@@ -22,7 +22,7 @@ const st = (id, rot, dir, mun, lat, lon, g95, gA, hor, venta = 'P') => ({
   'Precio Gasolina 98 E10': '',
   'Precio Gasolina 98 E5': '',
   'Precio Hidrogeno': '',
-  'Provincia': 'CÁDIZ',
+  'Provincia': mun === 'SEVILLA' ? 'SEVILLA' : 'CÁDIZ',
   'Remisión': 'dm',
   'Rótulo': rot,
   'Tipo Venta': venta,
@@ -44,7 +44,14 @@ module.exports = {
     st(6, 'PETROPRIX', 'AVDA DE LA HISPANIDAD',     'ALGECIRAS', 36.1360, -5.4480, 1.389, null,  'L-D: 24H'),               // sin gasóleo A
     st(7, 'FLOTA SL',  'ZONA PORTUARIA',            'ALGECIRAS', 36.1350, -5.4400, 1.199, 1.149, 'L-V: 08:00-15:00', 'R'),  // venta restringida
     st(8, 'SHELL',     'AVDA DE LAS FLORES',        'LA LINEA',  36.1650, -5.3480, 1.559, 1.519, 'L-D: 24H'),
-    st(9, 'SIN COORD', 'DESCONOCIDA',               'X',         0,        0,      1.111, 1.111, 'L-D: 24H')                // debe descartarse
+    st(9, 'SIN COORD', 'DESCONOCIDA',               'X',         0,        0,      1.111, 1.111, 'L-D: 24H'),               // debe descartarse
+
+    // Sevilla: lejos del radio de los tests (>150 km) pero necesarias para que
+    // los agregados de mercado tengan masa suficiente (mínimos por provincia y marca)
+    st(10, 'REPSOL', 'AVDA KANSAS CITY',   'SEVILLA', 37.3900, -5.9800, 1.649, 1.599, 'L-D: 24H'),
+    st(11, 'REPSOL', 'RONDA DEL TAMARGUILLO', 'SEVILLA', 37.3700, -5.9600, 1.639, 1.589, 'L-D: 24H'),
+    st(12, 'REPSOL', 'CTRA SE-30 KM 4',    'SEVILLA', 37.3600, -6.0100, 1.659, 1.609, 'L-D: 24H'),
+    st(13, 'REPSOL', 'POL IND CALONGE',    'SEVILLA', 37.4100, -5.9700, 1.669, 1.619, 'L-D: 24H')
   ],
   Nota: 'Muestra de prueba'
 };

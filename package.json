@@ -1,13 +1,14 @@
 {
   "name": "fuel-rapido",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "La gasolinera más barata cerca de ti, con los precios oficiales del Ministerio. Web app estática, sin backend ni claves de API.",
   "private": true,
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node test/snapshot-test.mjs && node test/run.js",
+    "test": "node test/snapshot-test.mjs && node test/series-test.mjs && node test/run.js",
     "test:web": "node test/run.js",
     "test:snapshot": "node test/snapshot-test.mjs",
+    "test:series": "node test/series-test.mjs",
     "snapshot": "node scripts/snapshot.mjs"
   },
   "devDependencies": {

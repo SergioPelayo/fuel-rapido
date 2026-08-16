@@ -193,6 +193,158 @@ function appendHistory(changes, stampISO) {
   return path.relative(ROOT, file);
 }
 
+/* ---------- 4b. series por estación ---------- */
+/* Una gasolinera cambia de precio cada pocos días, así que su serie completa
+   cabe en un fichero diminuto. Repartimos en 100 carpetas por los dos últimos
+   dígitos del id para no dejar 11.000 ficheros en un mismo directorio.
+   La app se descarga UN fichero (~2 KB) para pintar la curva de una estación. */
+
+const SERIES_DAYS = 90;
+
+function seriesPath(id) {
+  const shard = String(id).padStart(2, '0').slice(-2);
+  return path.join(DATA, 'series', shard, `${id}.csv`);
+}
+
+function appendSeries(changes, stampISO) {
+  const ts = stampISO.slice(0, 16) + 'Z';
+  const porEstacion = new Map();
+  for (const c of changes) {
+    if (!porEstacion.has(c.id)) porEstacion.set(c.id, []);
+    porEstacion.get(c.id).push(`${ts},${c.fuel},${c.precio.toFixed(3)}`);
+  }
+  for (const [id, lines] of porEstacion) {
+    const file = seriesPath(id);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const nuevo = !fs.existsSync(file);
+    fs.appendFileSync(file, (nuevo ? 'ts,combustible,precio\n' : '') + lines.join('\n') + '\n');
+  }
+  return porEstacion.size;
+}
+
+function readSeries(id) {
+  const file = seriesPath(id);
+  if (!fs.existsSync(file)) return [];
+  const rows = parseCsv(fs.readFileSync(file, 'utf8'));
+  rows.shift();
+  return rows.map(r => ({ ts: r[0], fuel: r[1], precio: dec(r[2]) })).filter(e => e.precio !== null);
+}
+
+/* Reconstruye el cierre diario a partir de los cambios: entre dos cambios el
+   precio se mantiene, así que se arrastra el último conocido. */
+function cierresDiarios(eventos, hastaISO, dias) {
+  if (!eventos.length) return [];
+  const porDia = new Map();
+  for (const e of eventos) porDia.set(e.ts.slice(0, 10), e.precio);   // último del día gana
+
+  const fin = new Date(hastaISO.slice(0, 10) + 'T00:00:00Z');
+  const ini = new Date(fin.getTime() - (dias - 1) * 86400000);
+  const primero = eventos[0].ts.slice(0, 10);
+
+  let vigente = null;
+  for (const e of eventos) {                        // precio en vigor al abrir la ventana
+    if (e.ts.slice(0, 10) < ini.toISOString().slice(0, 10)) vigente = e.precio; else break;
+  }
+
+  const out = [];
+  for (let t = ini.getTime(); t <= fin.getTime(); t += 86400000) {
+    const dia = new Date(t).toISOString().slice(0, 10);
+    if (porDia.has(dia)) vigente = porDia.get(dia);
+    if (vigente !== null && dia >= primero) out.push({ dia, precio: vigente });
+  }
+  return out;
+}
+
+function writeStats(stations, stampISO) {
+  const head = ['id', 'combustible', 'actual', 'min30', 'max30', 'media30', 'dias'];
+  const body = [];
+  for (const s of stations) {
+    const eventos = readSeries(s.id);
+    if (!eventos.length) continue;
+    for (const f of FUEL_IDS) {
+      const actual = s.prices[f];
+      if (actual === undefined) continue;
+      const serie = cierresDiarios(eventos.filter(e => e.fuel === f), stampISO, 30);
+      if (serie.length < 2) continue;                // con un solo punto no hay nada que comparar
+      const v = serie.map(p => p.precio);
+      const media = v.reduce((a, b) => a + b, 0) / v.length;
+      body.push(csvRow([s.id, f, actual.toFixed(3), Math.min(...v).toFixed(3),
+                        Math.max(...v).toFixed(3), media.toFixed(4), v.length]));
+    }
+  }
+  fs.writeFileSync(path.join(DATA, 'stats.csv'), head.join(',') + '\n' + body.join('\n') + (body.length ? '\n' : ''));
+  return body.length;
+}
+
+/* ---------- 4c. agregados de mercado ---------- */
+
+const FUELS_MERCADO = ['g95e5', 'g98e5', 'gA', 'gP', 'glp'];
+const TOP_MARCAS = 40;
+
+const mediana = a => {
+  const s = [...a].sort((x, y) => x - y), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+const media = a => a.reduce((x, y) => x + y, 0) / a.length;
+
+/* Cada fichero guarda una fila por día; si el recolector vuelve a correr el
+   mismo día, esa fila se sustituye en lugar de duplicarse. */
+function upsertDia(file, head, dia, filas) {
+  const full = path.join(DATA, 'market', file);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  let previas = [];
+  if (fs.existsSync(full)) {
+    const rows = parseCsv(fs.readFileSync(full, 'utf8'));
+    rows.shift();
+    previas = rows.filter(r => r[0] !== dia).map(r => csvRow(r));
+  }
+  fs.writeFileSync(full, head.join(',') + '\n' + [...previas, ...filas].join('\n') + '\n');
+}
+
+function writeMarket(stations, stampISO) {
+  const dia = stampISO.slice(0, 10);
+  const publicas = stations.filter(s => s.venta.toUpperCase() !== 'R');
+
+  const nacional = [], provincias = [], marcas = [];
+
+  // Marcas con presencia suficiente para que la media signifique algo
+  const cuenta = new Map();
+  for (const s of publicas) {
+    const m = s.rotulo.toUpperCase().trim();
+    if (m) cuenta.set(m, (cuenta.get(m) || 0) + 1);
+  }
+  const top = new Set([...cuenta.entries()].sort((a, b) => b[1] - a[1]).slice(0, TOP_MARCAS).map(e => e[0]));
+
+  for (const f of FUELS_MERCADO) {
+    const conPrecio = publicas.filter(s => s.prices[f] !== undefined);
+    if (conPrecio.length < 10) continue;
+    const v = conPrecio.map(s => s.prices[f]);
+    nacional.push(csvRow([dia, f, v.length, Math.min(...v).toFixed(3),
+                          media(v).toFixed(4), mediana(v).toFixed(3), Math.max(...v).toFixed(3)]));
+
+    const porProv = new Map(), porMarca = new Map();
+    for (const s of conPrecio) {
+      const p = s.provincia.toUpperCase().trim();
+      if (p) { if (!porProv.has(p)) porProv.set(p, []); porProv.get(p).push(s.prices[f]); }
+      const m = s.rotulo.toUpperCase().trim();
+      if (top.has(m)) { if (!porMarca.has(m)) porMarca.set(m, []); porMarca.get(m).push(s.prices[f]); }
+    }
+    for (const [p, arr] of porProv) {
+      if (arr.length < 3) continue;
+      provincias.push(csvRow([dia, p, f, arr.length, media(arr).toFixed(4), Math.min(...arr).toFixed(3)]));
+    }
+    for (const [m, arr] of porMarca) {
+      if (arr.length < 5) continue;
+      marcas.push(csvRow([dia, m, f, arr.length, media(arr).toFixed(4), Math.min(...arr).toFixed(3)]));
+    }
+  }
+
+  upsertDia('nacional.csv',   ['fecha', 'combustible', 'estaciones', 'min', 'media', 'mediana', 'max'], dia, nacional);
+  upsertDia('provincias.csv', ['fecha', 'provincia', 'combustible', 'estaciones', 'media', 'min'],      dia, provincias);
+  upsertDia('marcas.csv',     ['fecha', 'marca', 'combustible', 'estaciones', 'media', 'min'],          dia, marcas);
+  return { nacional: nacional.length, provincias: provincias.length, marcas: marcas.length };
+}
+
 /* ---------- 5. principal ---------- */
 
 (async () => {
@@ -224,10 +376,14 @@ function appendHistory(changes, stampISO) {
     }
   }
 
-  const stampISO = new Date().toISOString();
+  // FUEL_STAMP permite fijar la fecha de captura en los tests (simular varios días)
+  const stampISO = process.env.FUEL_STAMP || new Date().toISOString();
   const catalogo = writeStations(stations);
   writePrices(stations);
   const histFile = appendHistory(changes, stampISO);
+  const seriesTocadas = appendSeries(changes, stampISO);
+  const statsFilas = writeStats(stations, stampISO);
+  const mercado = writeMarket(stations, stampISO);
 
   const meta = {
     fechaMinisterio: fecha,
@@ -236,12 +392,18 @@ function appendHistory(changes, stampISO) {
     cambiosEnEstaCaptura: changes.length,
     estacionesNuevas: prev ? nuevas : stations.length,
     primeraCaptura: !prev,
+    seriesActualizadas: seriesTocadas,
+    estadisticasCalculadas: statsFilas,
+    mercado,
+    diasSerie: SERIES_DAYS,
     fuente: API_URL,
     licencia: 'Datos del Ministerio para la Transición Ecológica y el Reto Demográfico. Reutilización citando fuente y fecha de actualización.'
   };
   fs.writeFileSync(path.join(DATA, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 
-  console.log(`✔ ${stations.length} estaciones · ${changes.length} cambios de precio` +
+  console.log(`✔ ${stations.length} estaciones · ${changes.length} cambios · ` +
+              `${seriesTocadas} series · ${statsFilas} estadísticas · ` +
+              `mercado ${mercado.nacional}/${mercado.provincias}/${mercado.marcas}` +
               (catalogo ? ' · catálogo actualizado' : '') +
               (histFile ? ` · ${histFile}` : ' · sin histórico que añadir'));
 

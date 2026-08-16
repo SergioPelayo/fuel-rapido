@@ -13,6 +13,12 @@
 </head>
 <body>
 
+<div id="splash" class="splash">
+  <img src="assets/logo-pid.svg" alt="Pelayo Ingeniería Digital">
+  <div class="barra"><i></i></div>
+  <p class="pie">Buscando las gasolineras más baratas a tu alrededor…</p>
+</div>
+
 <header class="topbar">
   <div class="brand">
     <span class="logo" aria-hidden="true">⛽</span>
@@ -47,6 +53,7 @@
 <main>
   <section id="panelList" class="panel">
     <div id="hero" class="hero hidden"></div>
+    <div id="resumen" class="resumen hidden"></div>
     <div id="list" class="list"></div>
     <div id="empty" class="empty hidden"></div>
   </section>
@@ -79,6 +86,12 @@
       </label>
       <div id="townResults" class="town-results"></div>
 
+      <h2>Panel de mercado</h2>
+      <p>Cómo se está moviendo el precio del combustible en toda España: evolución diaria,
+        provincias más baratas y ranking de marcas.</p>
+      <a class="nav-btn" href="mercado.html" style="width:100%;justify-content:center;padding:13px">
+        📊 Ver el panel de mercado</a>
+
       <h2>Datos</h2>
       <p id="dataMeta" class="muted">—</p>
       <button id="btnPurge" class="secondary-btn">Borrar caché y recargar datos</button>
@@ -95,8 +108,20 @@
   <button class="tab" data-panel="panelInfo">Ajustes</button>
 </nav>
 
+<div id="sheetFondo" class="sheet-fondo"></div>
+<section id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetNombre">
+  <div class="sheet-asa"></div>
+  <button id="sheetCerrar" class="sheet-cerrar" aria-label="Cerrar">✕</button>
+  <h2 id="sheetNombre">—</h2>
+  <p id="sheetSub" class="sub"></p>
+  <div id="sheetCuerpo"></div>
+  <a id="sheetNav" class="nav-btn" href="#" target="_blank" rel="noopener">▶ Navegar hasta aquí</a>
+</section>
+
 <div id="toast" class="toast hidden"></div>
 
+<script src="marcas.js"></script>
+<script src="viz.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

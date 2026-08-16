@@ -14,12 +14,25 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'fr-web-'));
 fs.mkdirSync(path.join(TMP, 'scripts'));
 fs.mkdirSync(path.join(TMP, 'test'));
 fs.copyFileSync(path.join(ROOT, 'scripts/snapshot.mjs'), path.join(TMP, 'scripts/snapshot.mjs'));
-fs.copyFileSync(path.join(ROOT, 'test/mock.json'), path.join(TMP, 'test/mock.json'));
-execFileSync('node', ['scripts/snapshot.mjs'],
-  { cwd: TMP, env: { ...process.env, FUEL_SOURCE: './test/mock.json' }, stdio: 'ignore' });
+
+/* Simulamos 10 días de capturas para que existan series, estadísticas y
+   agregados de mercado. Ballenoil (id 4) baja de 1,500 a 1,320; el resto quieto. */
+const PRECIOS_SIM = [1.500, 1.500, 1.460, 1.460, 1.400, 1.400, 1.400, 1.360, 1.320, 1.320];
+const MEDIA_SIM = PRECIOS_SIM.reduce((a, b) => a + b, 0) / PRECIOS_SIM.length;
+PRECIOS_SIM.forEach((p, i) => {
+  const m = JSON.parse(JSON.stringify(mock));
+  m.ListaEESSPrecio[3]['Precio Gasolina 95 E5'] = String(p).replace('.', ',');
+  fs.writeFileSync(path.join(TMP, 'test/src.json'), JSON.stringify(m));
+  execFileSync('node', ['scripts/snapshot.mjs'], {
+    cwd: TMP, stdio: 'ignore',
+    env: { ...process.env, FUEL_SOURCE: './test/src.json',
+           FUEL_STAMP: `2026-08-${String(i + 1).padStart(2, '0')}T09:00:00.000Z` }
+  });
+});
 const PORT = 8099;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-  '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+  '.png': 'image/png', '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
@@ -69,7 +82,17 @@ function check(name, cond, extra = '') {
   });
 
   await page.goto(`http://localhost:${PORT}/index.html`);
+
+  console.log('\n--- Pantalla de arranque ---');
+  check('Se ve la marca mientras localiza y descarga', await page.isVisible('#splash'));
+  check('Con el logo de Pelayo Ingeniería Digital',
+        /logo-pid\.svg$/.test(await page.getAttribute('#splash img', 'src')),
+        await page.getAttribute('#splash img', 'src'));
+  await page.screenshot({ path: path.join(__dirname, 'shot-splash.png'), fullPage: false });
+
   await page.waitForSelector('#hero:not(.hidden)', { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector('#splash'), { timeout: 8000 });
+  check('Y se quita sola en cuanto hay lista que enseñar', true);
 
   console.log('\n--- Gasolina 95, radio 10 km, orden por precio ---');
   const heroName = (await page.textContent('#hero .name')).trim();
@@ -195,6 +218,165 @@ function check(name, cond, extra = '') {
   check('Horario partido: cerrado 15:00', sched.partido15 === false);
   check('Horario vacío → desconocido', sched.vacio === null);
 
+  /* ---------- Ficha de estación con su histórico ---------- */
+  console.log('\n--- Ficha de estación: la curva de precios ---');
+  await page.click('.tab[data-panel="panelList"]');
+  await page.selectOption('#fuelSelect', 'g95e5');
+  await page.waitForTimeout(250);
+
+  await page.click('#hero .name');
+  await page.waitForSelector('#sheet.is-open', { timeout: 5000 });
+  await page.waitForSelector('#sheetCuerpo .veredicto', { timeout: 8000 });
+
+  check('Se abre la ficha de la estación destacada',
+        (await page.textContent('#sheetNombre .nombre')).trim() === 'Ballenoil',
+        (await page.textContent('#sheetNombre .nombre')).trim());
+  check('La ficha muestra el distintivo de la marca',
+        (await page.textContent('#sheetNombre .marca')).trim() === 'BA',
+        (await page.textContent('#sheetNombre .marca')).trim());
+  const puntos = await page.$$eval('#sheetCuerpo svg path[stroke-width="2"]',
+    els => els[0].getAttribute('d').split('L').length);
+  check('Dibuja la curva con un punto por día', puntos >= 10, puntos + ' puntos');
+  check('El gráfico lleva descripción accesible',
+        /Ballenoil/.test(await page.getAttribute('#sheetCuerpo svg', 'aria-label')),
+        await page.getAttribute('#sheetCuerpo svg', 'aria-label'));
+
+  const tiles = await page.$$eval('.tile .val', els => els.map(e => e.textContent.trim()));
+  check('Muestra hoy, mínimo y máximo', tiles.length === 3, tiles.join(' | '));
+  check('Máximo = 1,500 (el precio del día 1)', tiles[2] === '1,500 €', tiles[2]);
+  check('Mínimo = 1,320', tiles[1] === '1,320 €', tiles[1]);
+
+  // Tooltip del gráfico
+  const caja = await page.$('#sheetCuerpo svg');
+  await caja.scrollIntoViewIfNeeded();
+  const bb = await caja.boundingBox();
+  await caja.hover({ position: { x: bb.width * 0.35, y: bb.height / 2 } });
+  await caja.hover({ position: { x: bb.width * 0.45, y: bb.height / 2 } });
+  const tipOk = await page.waitForSelector('#sheetCuerpo .viz-tip.is-on', { timeout: 4000 })
+    .then(() => true).catch(() => false);
+  check('La cruz y el tooltip responden al puntero', tipOk,
+        (await page.textContent('#sheetCuerpo .viz-tip') || '').replace(/\s+/g, ' ').trim());
+  check('El tooltip nombra la serie y da el valor',
+        /Gasolina 95/.test(await page.textContent('#sheetCuerpo .viz-tip')));
+
+  // Vista de tabla (accesibilidad: ningún valor queda sólo detrás del hover)
+  await page.click('#sheetCuerpo .viz-toggle');
+  await page.waitForSelector('#sheetCuerpo .viz-tabla');
+  const filas = await page.$$eval('#sheetCuerpo .viz-tabla tbody tr',
+    els => els.map(tr => [...tr.children].map(td => td.textContent.trim())));
+  check('La vista de tabla lista todos los días', filas.length >= 10, filas.length + ' filas');
+
+  // El veredicto tiene que cuadrar con los números que la propia ficha enseña
+  const veredicto = (await page.textContent('#sheetCuerpo .veredicto')).replace(/\s+/g, ' ').trim();
+  const serie30 = filas.map(f => parseFloat(f[1].replace(',', '.')))
+    .slice(0, 30);
+  const media30 = serie30.reduce((a, b) => a + b, 0) / serie30.length;
+  const hoy = parseFloat(tiles[0].replace(',', '.'));
+  const pct = (hoy - media30) / media30 * 100;
+  const esperado = hoy <= Math.min(...serie30) ? /precio más bajo/
+                 : pct <= -1.5 ? new RegExp(Math.abs(pct).toFixed(1) + ' % por debajo')
+                 : pct >= 1.5 ? new RegExp(pct.toFixed(1) + ' % por encima')
+                 : /precio habitual/;
+  check('El veredicto cuadra con la media que muestra su propia tabla',
+        esperado.test(veredicto), `${veredicto} (media ${media30.toFixed(4)}, hoy ${hoy})`);
+
+  await page.screenshot({ path: path.join(__dirname, 'shot-ficha.png'), fullPage: false });
+  await page.click('#sheetCerrar');
+  await page.waitForTimeout(300);
+  check('La ficha se cierra', !(await page.isVisible('#sheet.is-open')));
+
+  console.log('\n--- Capa visual: marcas, medidor y resumen ---');
+  const marcasVistas = await page.$$eval('.card > .marca, #hero .marca',
+    e => e.map(x => x.textContent.trim()));
+  check('Cada tarjeta lleva el distintivo de su cadena',
+        marcasVistas.length >= 5, marcasVistas.join(' | '));
+  check('Ballenoil sale con su color corporativo amarillo',
+        await page.$eval('#hero .marca', e => e.style.background.replace(/\s/g, '')) === 'rgb(255,209,0)',
+        await page.$eval('#hero .marca', e => e.style.background));
+  check('Con fondo claro el texto del distintivo se pone oscuro',
+        await page.$eval('#hero .marca', e => e.style.color.replace(/\s/g, '')) === 'rgb(17,22,31)',
+        await page.$eval('#hero .marca', e => e.style.color));
+  const anchos = await page.$$eval('.medidor i', e => e.map(x => parseFloat(x.style.width)));
+  check('El medidor se vacía conforme sube el precio (lleno = la más barata)',
+        anchos.length >= 4 && anchos.every((v, i, a) => i === 0 || a[i - 1] >= v), anchos.join(' > '));
+  check('La más cara del radio deja el medidor casi vacío',
+        Math.round(anchos.at(-1)) === 3, anchos.at(-1) + '%');
+  const colores = await page.$$eval('.medidor i', e => e.map(x => x.style.background));
+  check('Y cambia de color de barata a cara',
+        colores[0].includes('31, 157, 87') && colores.at(-1).includes('217, 89, 38'),
+        colores[0] + ' … ' + colores.at(-1));
+  const resumen = (await page.textContent('#resumen')).replace(/\s+/g, ' ').trim();
+  check('La tira de resumen da el rango de la zona',
+        /5 estaciones en 10 km/.test(resumen) && /1,379/.test(resumen) && /1,629/.test(resumen), resumen);
+
+  console.log('\n--- Distintivo en la lista (stats.csv) ---');
+  await page.waitForFunction(
+    () => typeof state !== 'undefined' && state.stats && state.stats.size > 0, { timeout: 15000 });
+  await page.waitForTimeout(400);
+  const tags = await page.$$eval('.card .tag, #hero .tag', els => els.map(e => e.textContent.trim()));
+  check('stats.csv se carga en segundo plano y marca las que están bajo su media',
+        tags.some(t => /bajo su media|mínimo en 30/i.test(t)), tags.join(' | '));
+
+  /* ---------- Panel de mercado ---------- */
+  console.log('\n--- Panel de mercado ---');
+  const pm = await ctx.newPage();
+  pm.on('pageerror', e => errors.push('mercado: ' + e));
+  await pm.goto(`http://localhost:${PORT}/mercado.html`);
+  await pm.waitForSelector('#panel:not(.hidden)', { timeout: 10000 });
+
+  await pm.waitForTimeout(400);
+  await pm.screenshot({ path: path.join(__dirname, 'shot-mercado.png'), fullPage: false });
+  await pm.evaluate(() => document.querySelector('#graf4').scrollIntoView({ block: 'center' }));
+  await pm.waitForTimeout(300);
+  await pm.screenshot({ path: path.join(__dirname, 'shot-rankings.png'), fullPage: false });
+
+  check('El panel carga los agregados nacionales',
+        /días registrados/.test(await pm.textContent('#statusLine')),
+        (await pm.textContent('#statusLine')).trim());
+  check('KPI de media nacional con valor',
+        /^\d,\d{3}/.test((await pm.textContent('#kpiMedia')).trim()),
+        (await pm.textContent('#kpiMedia')).trim());
+  check('KPI del mínimo nacional = 1,320 (la estación que bajó)',
+        (await pm.textContent('#kpiMin')).trim().startsWith('1,320'),
+        (await pm.textContent('#kpiMin')).trim());
+  check('La variación a 7 días indica bajada',
+        /▼/.test(await pm.textContent('#kpiMinDelta')),
+        (await pm.textContent('#kpiMinDelta')).trim());
+
+  const nSeries1 = await pm.$$eval('#graf1 svg path[stroke-width="2"]', e => e.length);
+  check('Gráfico 1: dos series (media y mínimo)', nSeries1 === 2, nSeries1 + ' series');
+  check('Con leyenda, porque hay más de una serie',
+        (await pm.$$eval('#leg1 span.viz-key', e => e.length)) === 2);
+
+  const nSeries2 = await pm.$$eval('#graf2 svg path[stroke-width="2"]', e => e.length);
+  check('Gráfico 2: una línea por combustible disponible', nSeries2 >= 2, nSeries2 + ' series');
+
+  const provs = await pm.$$eval('#graf3 .viz-barra-lab', e => e.map(x => x.textContent));
+  check('Ranking de provincias ordenado de más barata a más cara',
+        provs.length >= 2 && provs[0] === 'Cádiz', provs.join(' | '));
+  const destacada = await pm.$$eval('#graf3 .es-destacada .viz-barra-lab', e => e.map(x => x.textContent));
+  check('Destaca la provincia del usuario si la app ya la conoce',
+        destacada.length === 1 && destacada[0] === 'Cádiz', destacada.join(','));
+
+  const marcas = await pm.$$eval('#graf4 .viz-barra-lab',
+    e => e.map(x => x.lastChild.textContent.trim()));
+  check('Ranking de marcas (sólo las que llegan al mínimo de estaciones)',
+        marcas.includes('Repsol'), marcas.join(' | '));
+  check('Las marcas del ranking llevan su distintivo de color',
+        (await pm.$eval('#graf4 .viz-barra-lab .marca', e => e.style.background)).includes('245, 130, 32'),
+        await pm.$eval('#graf4 .viz-barra-lab .marca', e => e.style.background));
+
+  await pm.click('#tab3 ~ .viz-toggle, .viz-toggle[data-tabla="tab3"]');
+  await pm.waitForSelector('#tab3 .viz-tabla');
+  check('Cada bloque tiene su vista de tabla',
+        (await pm.$$eval('#tab3 .viz-tabla tbody tr', e => e.length)) >= 2);
+
+  const fuera = await pm.$$eval('#graf3 .viz-barra-val', e => e.map(x => x.textContent.trim()));
+  check('Los valores van escritos junto a la barra, no sólo en el tooltip',
+        fuera.every(t => /€$/.test(t)), fuera.slice(0, 3).join(' | '));
+
+  await pm.close();
+
   /* ---------- Escenario 2: el Ministerio no responde ---------- */
   console.log('\n--- Respaldo: Ministerio caído y proxies caídos ---');
   const ctx2 = await browser.newContext({
@@ -214,7 +396,7 @@ function check(name, cond, extra = '') {
   const viaTxt = await page2.textContent('#dataMeta');
   const nFb = await page2.evaluate(() => state.stations.length);
   check('La app arranca igualmente con el snapshot del repositorio', heroFb === 'Ballenoil', heroFb);
-  check('Carga las 8 estaciones del snapshot', nFb === 8, String(nFb));
+  check('Carga las 12 estaciones del snapshot', nFb === 12, String(nFb));
   check('Ajustes indica el origen real de los datos', /snapshot/i.test(viaTxt), viaTxt.replace(/\s+/g, ' ').trim());
   check('Usa el snapshot ANTES que los proxies externos', proxyHits === 0, proxyHits + ' llamadas a proxy');
 
