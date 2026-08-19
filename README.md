@@ -270,10 +270,14 @@ por luminancia para que siempre tenga contraste.
 
 ### La marca de la app
 
-`assets/icono.svg` — un surtidor con la flecha de «precio a la baja», dibujado para
-leerse a **22 px** en la cabecera. De ahí salen también el favicon y los iconos de la
-PWA (`icons/`), así que cabecera, pestaña del navegador y pantalla de inicio del móvil
-llevan la misma marca.
+`assets/icono.svg` — dos gotas de combustible, una con el rayo de la velocidad y otra
+con el marcador. El símbolo lo aporta Pelayo Ingeniería Digital. De ahí salen también el
+favicon y los iconos de la PWA (`icons/`), así que cabecera, pestaña del navegador y
+pantalla de inicio del móvil llevan la misma marca.
+
+Va **sin las palabras** del logotipo original a propósito: el nombre lo pone el texto de
+la interfaz, y así el símbolo sigue leyéndose a 22 px. El surtidor anterior sigue en el
+repo como `assets/icono-surtidor.svg` por si algún día se quiere recuperar.
 
 Se descartaron los emoji (⛽ 📊 💶 📍) a propósito: cada sistema operativo los dibuja a
 su manera, así que el mismo icono se veía distinto en Android, iPhone y escritorio.

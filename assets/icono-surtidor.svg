@@ -1,0 +1,11 @@
+<!-- Fuel Rápido — marca de la app.
+     Surtidor con la flecha de "precio a la baja". Diseñada para leerse a 22 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fuel Rápido">
+  <title>Fuel Rápido</title>
+  <defs><linearGradient id="fr" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#37d67a"/><stop offset="100%" stop-color="#1f9d57"/></linearGradient></defs>
+  <rect x="12" y="9" width="28" height="47" rx="8" fill="url(#fr)"/>
+  <path d="M26 17v14M26 33l-6-7M26 33l6-7" fill="none" stroke="#0b0f14" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 23h4a5 5 0 0 1 5 5v14a4 4 0 0 0 8 0V26" fill="none" stroke="url(#fr)"
+        stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

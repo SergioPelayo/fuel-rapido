@@ -2,7 +2,7 @@
    Sólo cachea el "esqueleto" de la app (mismo origen). Los precios se guardan
    aparte en IndexedDB, así que la app abre y funciona sin cobertura. */
 
-const VERSION = 'fuel-rapido-v5';
+const VERSION = 'fuel-rapido-v7';
 const SHELL = [
   './',
   './index.html',
