@@ -1,11 +1,11 @@
 {
-  "fechaMinisterio": "03/09/2026 20:55:55",
-  "capturado": "2026-09-03T18:56:29.912Z",
+  "fechaMinisterio": "03/09/2026 23:28:59",
+  "capturado": "2026-09-03T21:29:33.127Z",
   "estaciones": 11472,
-  "cambiosEnEstaCaptura": 1786,
-  "estacionesNuevas": 2,
+  "cambiosEnEstaCaptura": 1547,
+  "estacionesNuevas": 0,
   "primeraCaptura": false,
-  "seriesActualizadas": 1034,
+  "seriesActualizadas": 729,
   "estadisticasCalculadas": 36384,
   "mercado": {
     "nacional": 5,
