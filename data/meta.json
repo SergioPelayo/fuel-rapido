@@ -1,16 +1,16 @@
 {
-  "fechaMinisterio": "14/10/2026 12:42:45",
-  "capturado": "2026-10-14T10:43:15.820Z",
-  "estaciones": 11497,
-  "cambiosEnEstaCaptura": 3688,
-  "estacionesNuevas": 4,
+  "fechaMinisterio": "14/10/2026 17:34:36",
+  "capturado": "2026-10-14T15:35:06.498Z",
+  "estaciones": 11448,
+  "cambiosEnEstaCaptura": 2718,
+  "estacionesNuevas": 2,
   "primeraCaptura": false,
-  "seriesActualizadas": 1741,
-  "estadisticasCalculadas": 38097,
+  "seriesActualizadas": 1390,
+  "estadisticasCalculadas": 38008,
   "mercado": {
     "nacional": 5,
     "provincias": 257,
-    "marcas": 135
+    "marcas": 137
   },
   "diasSerie": 90,
   "fuente": "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/",
