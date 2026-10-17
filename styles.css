@@ -109,7 +109,7 @@ button,select,input{font-family:inherit}
 .list{padding:0 16px;display:flex;flex-direction:column;gap:10px}
 .card{
   position:relative;overflow:hidden;
-  display:flex;gap:12px;align-items:flex-start;
+  display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:12px 12px 17px 14px;
 }
@@ -334,6 +334,50 @@ body.pagina-mercado .status{max-width:none}
 .splash .pie{font-size:12px;color:var(--txt-dim);letter-spacing:.3px;text-align:center}
 @media (prefers-reduced-motion:reduce){
   .splash .barra i{animation:none;width:100%}
+}
+
+/* ---------- Descuentos de las cadenas ----------
+   Tono propio, deliberadamente distinto del verde del precio: un descuento NO
+   es un precio barato, es un aviso. Si compartieran color, el ojo los leería
+   como lo mismo. Texto comprobado a 6,6:1 o mejor sobre la tarjeta y sobre el
+   destacado, que tiene fondo verde. */
+.promo{
+  display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+  margin-top:8px;padding:5px 8px;border-radius:8px;
+  background:rgba(139,156,247,.13);border:1px solid rgba(139,156,247,.38);
+  color:#c3cdfb;font-size:11.5px;font-weight:600;line-height:1.35;
+}
+.promo .sep{opacity:.45}
+.card>.promo{width:100%;margin-top:0}   /* a lo ancho de la tarjeta: cabe en una línea */
+.promo b{color:#e2e7fe;font-weight:800}
+.promo.ya{background:rgba(139,156,247,.2);border-color:rgba(166,180,255,.6);color:#d6dcfd}
+.hero .promo{margin-top:10px}
+
+/* Bloque de la ficha de estación */
+.promo-ficha{
+  margin:0 0 12px;padding:11px 12px;border-radius:12px;
+  background:rgba(139,156,247,.1);border:1px solid rgba(139,156,247,.34);
+}
+.promo-ficha-tit{margin:0 0 6px;font-size:14.5px;font-weight:800;color:#d6dcfd}
+.promo-ficha-txt{margin:0 0 5px;font-size:12.5px;line-height:1.45;color:#b4c0ee}
+.promo-ficha-txt:last-of-type{margin-bottom:0}
+.promo-ficha-enl{display:inline-block;margin-top:7px;font-size:12.5px;font-weight:700;color:#c3cdfb}
+
+/* Panel de Ajustes */
+.promos-box{margin:10px 0 4px}
+.promo-row{
+  padding:10px 12px;margin-bottom:8px;border-radius:12px;
+  background:var(--card);border:1px solid var(--line);
+}
+.promo-head{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:14px;line-height:1.3}
+.promo-head input{margin:1px 0 0;width:18px;height:18px;flex:0 0 auto;accent-color:#8b9cf7;cursor:pointer}
+.promo-head b{font-weight:700}
+.promo-head i{display:block;margin-top:2px;font-style:normal;font-size:11.5px;color:var(--txt-dim)}
+.promo-sel{width:100%;margin-top:9px}
+.promo-cond{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--txt-dim)}
+.promo-alerta{
+  margin:0 0 10px;padding:10px 12px;border-radius:12px;font-size:12.5px;line-height:1.45;
+  background:#3a2410;border:1px solid #6b4318;color:#fcd9a4;
 }
 
 /* ---------- Toast ---------- */

@@ -466,13 +466,19 @@ function compute() {
   const tank = state.tank, cons = state.consumption;
   for (const r of rows) {
     r.total = tank * r.price + (2 * r.dist * cons / 100) * r.price;
+    // Céntimos que el usuario DICE tener en esa cadena. Cero si no ha declarado
+    // nada. No toca r.price nunca: el precio oficial es el precio oficial.
+    r.promoCts = typeof Promos !== 'undefined' ? Promos.cts(r.s.name) : 0;
   }
 
   const cmp = {
     precio:    (a, b) => a.price - b.price || a.dist - b.dist,
     distancia: (a, b) => a.dist - b.dist || a.price - b.price,
-    ahorro:    (a, b) => a.total - b.total
-  }[state.sort];
+    ahorro:    (a, b) => a.total - b.total,
+    // Modo explícito: ordena por el precio que el usuario estima pagar. Sólo se
+    // llega aquí si él ha pulsado «Con mi descuento».
+    descuento: (a, b) => (a.price - a.promoCts / 100) - (b.price - b.promoCts / 100) || a.price - b.price
+  }[state.sort] || ((a, b) => a.price - b.price || a.dist - b.dist);
 
   rows.sort(cmp);
   return rows;
@@ -542,6 +548,7 @@ function render() {
       </div>
     </div>
     ${distintivo(best) ? `<div class="tags" style="margin-top:9px">${distintivo(best)}</div>` : ''}
+    ${promoLinea(best)}
     <div class="bottom">
       <div>
         <div class="price">${eur(best.price)}<small> €/L</small></div>
@@ -591,6 +598,7 @@ function render() {
         </div>
         <a class="nav-btn" href="${navUrl(r.s)}" target="_blank" rel="noopener">Navegar</a>
       </div>
+      ${promoLinea(r)}
       <div class="medidor" title="Lo barata que está respecto al resto de tu radio">
         <i style="width:${lleno.toFixed(1)}%;background:${colorPos}"></i>
       </div>`;
@@ -617,7 +625,9 @@ function render() {
 }
 
 function sortKicker() {
-  return { precio: 'La más barata cerca de ti', distancia: 'La más cercana', ahorro: 'La que más te compensa' }[state.sort];
+  return { precio: 'La más barata cerca de ti', distancia: 'La más cercana',
+           ahorro: 'La que más te compensa',
+           descuento: 'La más barata con tu descuento' }[state.sort] || 'La más barata cerca de ti';
 }
 
 function esc(s) {
@@ -683,9 +693,12 @@ function abrirFicha(r) {
 
   const cuerpo = $('#sheetCuerpo');
   cuerpo.replaceChildren();
+  // El bloque de descuentos no depende de la red: va primero y se queda.
+  const promo = promoFicha(r);
   const cargando = document.createElement('p');
   cargando.className = 'viz-vacio';
   cargando.textContent = 'Cargando su histórico…';
+  if (promo) cuerpo.appendChild(promo);
   cuerpo.appendChild(cargando);
 
   $('#sheetFondo').classList.add('is-open');
@@ -695,6 +708,7 @@ function abrirFicha(r) {
   cargarSerie(s.id, state.fuel).then(eventos => {
     const serie = cierresDiarios(eventos, 90);
     cuerpo.replaceChildren();
+    if (promo) cuerpo.appendChild(promo);   // el histórico llega después, el descuento se queda
 
     if (serie.length < 2) {
       const p = document.createElement('p');
@@ -786,6 +800,7 @@ function abrirFicha(r) {
     });
   }).catch(() => {
     cuerpo.replaceChildren();
+    if (promo) cuerpo.appendChild(promo);   // que falle el histórico no borra el descuento
     const p = document.createElement('p');
     p.className = 'viz-vacio';
     p.textContent = 'El histórico aún no está disponible. Se genera con el recolector horario del repositorio.';
@@ -828,6 +843,195 @@ function distintivo(r) {
   if (pct <= -1.5) return `<span class="tag cheap">↓ ${Math.abs(pct).toFixed(0)} % bajo su media</span>`;
   if (pct >= 2.5) return `<span class="tag closed">↑ ${pct.toFixed(0)} % sobre su media</span>`;
   return '';
+}
+
+/* ---------- 9d. Descuentos de las cadenas ----------
+   Aviso al lado del precio, nunca dentro del precio. Ver la cabecera de
+   promos.js para las tres reglas que gobiernan todo esto. */
+
+function hayPromos() {
+  return typeof Promos !== 'undefined' && Promos.hayDatos();
+}
+
+/* La línea que ve el conductor en la tarjeta. Cadena vacía si no ha declarado
+   nada para esa cadena: quien no usa estas apps no ve ni una palabra de ellas. */
+function promoLinea(r) {
+  if (!hayPromos()) return '';
+  const a = Promos.aviso(r.s.name);
+  if (!a) return '';
+
+  const natur = a.inmediato ? 'te lo descuentan al pagar'
+              : a.tipo === 'promocional' ? 'promoción de alta'
+              : 'saldo en su app, no en el surtidor';
+
+  let cabeza;
+  if (state.sort === 'descuento' && a.cts) {
+    cabeza = `≈ ${eur(r.price - a.cts / 100)} €/L con ${esc(a.nombre)}`;
+  } else if (a.cts) {
+    cabeza = `−${a.cts} cts con ${esc(a.nombre)}`;
+  } else if (a.euros) {
+    cabeza = `${eur(a.euros, 2)} € con ${esc(a.nombre)}`;
+  } else {
+    return '';
+  }
+
+  const rev = Promos.fecha(a.verificado);
+  return `<div class="promo${a.inmediato ? ' ya' : ''}">${cabeza}` +
+         `<span class="sep">·</span>${natur}` +
+         (rev ? `<span class="sep">·</span>rev. ${rev}` : '') +
+         (Promos.vencida() ? `<span class="sep">·</span><b>sin revisar</b>` : '') +
+         `</div>`;
+}
+
+/* Bloque de la ficha: aquí sí caben las condiciones enteras, que son lo que
+   convierte un número en algo accionable. */
+function promoFicha(r) {
+  if (!hayPromos()) return null;
+  const p = Promos.para(r.s.name);
+  if (!p) return null;
+
+  const caja = document.createElement('div');
+  caja.className = 'promo-ficha';
+  const a = Promos.aviso(r.s.name);
+
+  const h = document.createElement('p');
+  h.className = 'promo-ficha-tit';
+  h.textContent = a
+    ? (a.cts ? `−${a.cts} cts/L con ${a.nombre}` : `${a.nombre}: ${a.eurosEtiqueta || 'promoción puntual'}`)
+    : `Esta estación entra en ${p.nombre}`;
+  caja.appendChild(h);
+
+  const lineas = [];
+  if (a) {
+    if (a.tramo) lineas.push(`Tu tramo: ${a.tramo}${a.tramoNota ? ' — ' + a.tramoNota : ''}`);
+    if (a.tipoNota) lineas.push(a.tipoNota);
+    if (a.requiere) lineas.push('Requiere: ' + a.requiere);
+    if (a.topes) lineas.push('Límites: ' + a.topes);
+    if (a.caduca) lineas.push('La campaña caduca el ' + a.caduca.split('-').reverse().join('/') + '.');
+    lineas.push(`Condiciones revisadas a mano el ${Promos.fecha(a.verificado)}. Confírmalas en la app de la cadena.`);
+  } else {
+    lineas.push(`No has marcado este programa. Actívalo en Ajustes → Mis descuentos y te lo avisaremos aquí.`);
+  }
+
+  lineas.forEach(t => {
+    const q = document.createElement('p');
+    q.className = 'promo-ficha-txt';
+    q.textContent = t;
+    caja.appendChild(q);
+  });
+
+  if (a && a.fuente) {
+    const enl = document.createElement('a');
+    enl.className = 'promo-ficha-enl';
+    enl.href = a.fuente;
+    enl.target = '_blank';
+    enl.rel = 'noopener';
+    enl.textContent = 'Ver la fuente oficial ↗';
+    caja.appendChild(enl);
+  }
+  return caja;
+}
+
+/* El panel de Ajustes. Se reconstruye entero en cada cambio: son cinco filas,
+   no merece la pena hilar más fino. */
+function construirPromos() {
+  const box = $('#promosBox');
+  if (!box) return;
+  box.replaceChildren();
+
+  if (!hayPromos()) {
+    const p = document.createElement('p');
+    p.className = 'muted small';
+    p.textContent = 'No se han podido cargar los datos de descuentos. La app sigue funcionando con los precios oficiales.';
+    box.appendChild(p);
+    return;
+  }
+
+  if (Promos.vencida()) {
+    const al = document.createElement('p');
+    al.className = 'promo-alerta';
+    al.textContent = `Estas condiciones llevan ${Promos.dias()} días sin revisar y pueden haber cambiado. ` +
+                     `Tómalas como orientativas hasta la próxima revisión.`;
+    box.appendChild(al);
+  }
+
+  Promos.programas().forEach(p => {
+    const fila = document.createElement('div');
+    fila.className = 'promo-row';
+
+    const cab = document.createElement('label');
+    cab.className = 'promo-head';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = Promos.activo(p.id);
+    chk.dataset.prog = p.id;
+    const tit = document.createElement('span');
+    const b = document.createElement('b');
+    b.textContent = p.nombre;
+    const i = document.createElement('i');
+    // Los rótulos van tal cual los escribe el Ministerio: es lo que el conductor
+    // lee en el cartel, y «BP» o «DISA» no sobreviven a un titleCase.
+    i.textContent = (p.rotulos || []).join(' · ');
+    tit.append(b, document.createTextNode(' '), i);
+    cab.append(chk, tit);
+    fila.appendChild(cab);
+
+    if (Promos.activo(p.id) && p.tramos && p.tramos.length > 1) {
+      const sel = document.createElement('select');
+      sel.className = 'select promo-sel';
+      sel.dataset.tramo = p.id;
+      sel.setAttribute('aria-label', 'Tu nivel en ' + p.nombre);
+      p.tramos.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.id;
+        o.textContent = `${t.etiqueta} — ${t.cts} cts/L`;
+        sel.appendChild(o);
+      });
+      sel.value = Promos.elegido(p.id) || p.tramos[0].id;
+      fila.appendChild(sel);
+    }
+
+    if (Promos.activo(p.id)) {
+      const cond = document.createElement('p');
+      cond.className = 'promo-cond';
+      const a = Promos.aviso(p.rotulos[0]);
+      cond.textContent = [a && a.tipoNota, a && a.topes && 'Límites: ' + a.topes]
+        .filter(Boolean).join(' ');
+      if (cond.textContent) fila.appendChild(cond);
+    }
+
+    box.appendChild(fila);
+  });
+
+  const fuera = Promos.ocultos();
+  if (fuera.length) {
+    const p = document.createElement('p');
+    p.className = 'muted small';
+    p.textContent = 'No se muestran, por no poder verificarlos: ' +
+      fuera.map(o => `${o.nombre} (${o.motivo})`).join('; ') + '.';
+    box.appendChild(p);
+  }
+
+  const pie = document.createElement('p');
+  pie.className = 'muted small';
+  const rev = Promos.revision();
+  pie.textContent = `Datos v${Promos.version()} · revisados el ${(rev.ultima || '').split('-').reverse().join('/')}` +
+    (rev.proxima_prevista ? ` · próxima revisión prevista el ${rev.proxima_prevista.split('-').reverse().join('/')}` : '');
+  box.appendChild(pie);
+}
+
+/* El chip de ordenar sólo existe si el usuario ha declarado algo. Y si deja de
+   tener programas activos, no se queda atrapado en un orden que ya no aplica. */
+function sincronizarPromos() {
+  const chip = $('#chipPromo');
+  const hay = hayPromos() && Promos.cuantos() > 0;
+  if (chip) chip.classList.toggle('hidden', !hay);
+  if (!hay && state.sort === 'descuento') {
+    state.sort = 'precio';
+    save('fr.sort', 'precio');
+    document.querySelectorAll('.chip[data-sort]').forEach(b =>
+      b.classList.toggle('is-active', b.dataset.sort === 'precio'));
+  }
 }
 
 /* ---------- 10. Mapa (Leaflet + OpenStreetMap, carga diferida) ---------- */
@@ -1006,6 +1210,24 @@ function wire() {
     }, 200);
   });
 
+  /* Mis descuentos: marcar programa y declarar tramo. Nada de esto sale del
+     dispositivo, y nada de esto reordena la lista por sí solo. */
+  $('#promosBox').addEventListener('change', e => {
+    const t = e.target;
+    if (typeof Promos === 'undefined') return;
+    if (t.dataset.prog) {
+      // Al activar no pasamos tramo: promos.js elige el más bajo a propósito.
+      Promos.elegir(t.dataset.prog, t.checked ? undefined : null);
+    } else if (t.dataset.tramo) {
+      Promos.elegir(t.dataset.tramo, t.value);
+    } else {
+      return;
+    }
+    construirPromos();
+    sincronizarPromos();
+    render();
+  });
+
   $('#btnPurge').addEventListener('click', async () => {
     await store.clear();
     toast('Caché borrada, descargando de nuevo…');
@@ -1049,8 +1271,16 @@ async function init() {
 
   $('#list').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
 
-  // Ubicación y datos en paralelo: lo que llegue primero adelanta trabajo.
-  const [pos] = await Promise.all([locate(), loadData()]);
+  // Ubicación, precios y descuentos en paralelo: lo que llegue primero adelanta
+  // trabajo. El fichero de descuentos pesa unos pocos KB y nunca bloquea nada:
+  // si falla, la app funciona igual con los precios oficiales.
+  const [pos] = await Promise.all([
+    locate(),
+    loadData(),
+    (typeof Promos !== 'undefined' ? Promos.init(grab) : Promise.resolve())
+  ]);
+  construirPromos();
+  sincronizarPromos();
 
   if (pos) {
     state.origin = pos;

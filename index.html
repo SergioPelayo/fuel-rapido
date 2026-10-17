@@ -60,6 +60,7 @@
     <button class="chip is-active" data-sort="precio">Precio</button>
     <button class="chip" data-sort="distancia">Cerca</button>
     <button class="chip" data-sort="ahorro">Ahorro real</button>
+    <button class="chip hidden" id="chipPromo" data-sort="descuento">Mi descuento</button>
     <button class="chip" id="chipOpen" data-filter="abierto">Abierto</button>
   </div>
 </nav>
@@ -100,6 +101,13 @@
       </label>
       <div id="townResults" class="town-results"></div>
 
+      <h2>Mis descuentos</h2>
+      <p>Las apps de las cadenas pueden cambiar cuál te sale más barata. Marca las que
+        uses y en qué condiciones, y la app te lo avisará en cada estación.
+        <strong>El orden lo seguirá marcando el precio oficial</strong>: esto es un aviso, no
+        un recálculo. Lo que marques se guarda sólo en este dispositivo.</p>
+      <div id="promosBox" class="promos-box"></div>
+
       <h2>Panel de mercado</h2>
       <p>Cómo se está moviendo el precio del combustible en toda España: evolución diaria,
         provincias más baratas y ranking de marcas.</p>
@@ -135,6 +143,7 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="marcas.js"></script>
+<script src="promos.js"></script>
 <script src="viz.js"></script>
 <script src="app.js"></script>
 </body>

@@ -21,7 +21,7 @@ ir hasta allí con Google Maps.
 | **Lista ultrarrápida** | Al abrir, geolocaliza y muestra la más barata en grande, con el ahorro estimado por depósito y el botón **Navegar**. |
 | **14 combustibles** | Gasolina 95/98 (E5, E10, Premium), Gasóleo A, Premium y B, GLP, GNC, GNL, biodiésel, bioetanol e hidrógeno. |
 | **Radio configurable** | 3, 5, 10, 20, 50 o 100 km en línea recta. |
-| **Tres ordenaciones** | **Precio** · **Cerca** · **Ahorro real** (descuenta el combustible que gastas en el desvío de ida y vuelta, con tu consumo y el tamaño de tu depósito). |
+| **Tres ordenaciones** | **Precio** · **Cerca** · **Ahorro real** (descuenta el combustible que gastas en el desvío de ida y vuelta, con tu consumo y el tamaño de tu depósito). Y una cuarta opcional, **Mi descuento**, que sólo aparece si declaras los programas que usas. |
 | **Abierto ahora** | Interpreta el horario oficial (`L-D: 24H`, `L-V: 07:00-22:00; S: 08:00-14:00`, horarios partidos…) y filtra las cerradas. |
 | **Mapa** | Leaflet + OpenStreetMap, con chinchetas de color según el precio. Leaflet va incluido en el repo, así que no depende de ningún CDN. |
 | **Sin ubicación** | Si prefieres no dar el GPS, en *Ajustes* puedes buscar por municipio. |
@@ -31,6 +31,7 @@ ir hasta allí con Google Maps.
 | **Panel de mercado** | Página aparte (`mercado.html`) con la evolución nacional, el ranking de provincias y el de marcas. |
 | **Distintivo por cadena** | Cada gasolinera luce el color corporativo de su marca, así que la reconoces sin leer. |
 | **Medidor de precio** | Una barra en cada tarjeta: llena y verde si es de las baratas de tu radio, corta y roja si es de las caras. |
+| **Descuentos de las cadenas** | Si usas Waylet, Moeve gow, Mi BP o Mi Energía DISA, la app te avisa en cada estación. Como **aviso al lado del precio, nunca dentro**. Ver [Los descuentos de las cadenas](#los-descuentos-de-las-cadenas). |
 
 ---
 
@@ -246,6 +247,84 @@ oscuro de la app (separación CVD ΔE ≥ 8 y contraste ≥ 3:1 en todas las ser
 
 ---
 
+## Los descuentos de las cadenas
+
+Un descuento corriente de 10 cts/L cambia cuál es la gasolinera más barata en
+**más de la mitad de las zonas de España**. Ignorarlo era dar la respuesta
+equivocada a quien tiene esas apps instaladas. Pero sumarlo al precio habría
+sido peor.
+
+### Las tres reglas
+
+**1. El descuento nunca se suma al precio oficial.** El orden por defecto lo
+sigue marcando el precio del Ministerio, que es el que la estación está obligada
+a cobrar. El descuento se muestra en una línea aparte. Sólo si el usuario pulsa
+el chip **Mi descuento** se reordena la lista, y entonces la cifra va etiquetada
+como estimada y el precio grande sigue siendo el oficial.
+
+**2. Saldo no es precio.** Waylet, Moeve gow y Mi BP no bajan el surtidor:
+acumulan saldo en su propia app, canjeable sólo allí y con caducidad. Restarlo
+del precio sería mezclar un pago de hoy con un crédito futuro. Cada aviso dice
+de cuál de los dos se trata. El único verificado que descuenta al pagar es
+**Mi Energía DISA**.
+
+**3. Lo no verificado no se muestra.** Cada programa lleva un nivel de confianza.
+Los que no se han podido confirmar en una fuente oficial vigente desaparecen de
+la app, y *Ajustes* explica por qué. Si la campaña de un programa caduca, el
+programa se retira solo hasta que una revisión lo confirme: que haya pasado la
+fecha no significa que el programa haya muerto, significa que ya no respondemos
+de sus cifras.
+
+### El fichero de datos
+
+No hay API de descuentos, ni la habrá: son programas comerciales cerrados. La
+única vía es curación manual, y por eso el dato lleva fecha a la vista.
+
+`promociones.json`, en la raíz del repo:
+
+```json
+{
+  "_version": "1.1",
+  "_revision": { "cadencia_dias": 30, "avisar_si_supera_dias": 45,
+                 "ultima": "2026-10-17", "proxima_prevista": "2026-11-16" },
+  "programas": [
+    { "id": "waylet", "nombre": "Waylet", "rotulos": ["REPSOL", "CAMPSA", "PETRONOR"],
+      "tipo": "saldo", "requiere": "Pagar con Waylet",
+      "tramos": [ { "id": "coche", "etiqueta": "Solo coche", "cts": 10 } ],
+      "topes": "…", "caduca": "2026-10-31", "confianza": "alta",
+      "fuente": "https://…", "verificado": "2026-10-17", "incidencias": ["…"] }
+  ]
+}
+```
+
+| Campo | Para qué |
+|---|---|
+| `rotulos` | Se comparan contra el rótulo del Ministerio, en mayúsculas y sin tildes, igual que en `marcas.js`. |
+| `tipo` | `saldo`, `inmediato`, `promocional` o `desconocido`. Decide qué le dice la app al conductor. |
+| `tramos` | El descuento depende de a qué más esté abonado el usuario. Él declara el suyo en *Ajustes*. Al activar un programa se elige **siempre el tramo más bajo**. |
+| `confianza` | `alta`, `media` o `sin_confirmar`. Lo último no se muestra. |
+| `caduca` | Pasada la fecha, el programa se retira solo. |
+| `verificado` | Se imprime en cada aviso: `rev. 17/10`. |
+| `incidencias` | Contradicciones y lagunas de las webs oficiales. No se muestran; son notas para la siguiente revisión. |
+
+### Mantenimiento
+
+Pasados **45 días** sin revisar, la app lo advierte sola en *Ajustes* y marca
+cada aviso como «sin revisar». Es el mismo principio que hace creíble el dato de
+precios: convertir un deterioro invisible en uno visible.
+
+Hay una tarea programada que, cada mes, investiga los programas en sus fuentes
+oficiales y propone un fichero actualizado. **No escribe en el repositorio**:
+propone, y la decisión es humana.
+
+### Lo que no se hace
+
+Nunca se cobrará de una cadena por destacar su descuento. Es el mismo argumento
+por el que la app no lleva anuncios de gasolineras: corrompería el ranking, que
+es justamente el producto.
+
+---
+
 ## Marca e identidad visual
 
 ### Los distintivos de las cadenas
@@ -323,25 +402,36 @@ tengan instalada se actualicen.
 
 ## Tests
 
-Tres baterías de comprobaciones automáticas, **131 en total**:
+Cuatro baterías de comprobaciones automáticas, **224 en total**:
 
 - `npm run test:snapshot` (25) — el recolector: detección de cambios, comillas del CSV,
   estaciones nuevas, ruido de redondeo y las salvaguardas ante respuestas anómalas.
 - `npm run test:series` (30) — simula 10 días de capturas sobre 60 estaciones y verifica
   las series por estación, la reconstrucción de cierres diarios, las estadísticas de
   30 días y los agregados de mercado (sin duplicar días al reejecutar).
-- `npm run test:web` (76) — la app en un navegador sin interfaz: orden por
+- `npm run test:promos` (64) — la lógica de descuentos sin navegador: emparejado de
+  rótulos, elección de tramo, que lo caducado y lo no verificado desaparezcan solos,
+  el aviso de revisión vencida y que **ninguna cifra mostrada salga de algo que no
+  esté escrito en `promociones.json`**.
+- `npm run test:web` (105) — la app en un navegador sin interfaz: orden por
   precio/distancia/ahorro, radios, filtros, parser de horarios, enlaces de navegación,
   mapa, caché, pantalla de arranque, marca propia sin emojis, distintivos de cadena y
   sus colores, medidor de
-  precio, ficha de estación con su gráfico y tooltip, panel de mercado completo y el
-  respaldo `data/` con el Ministerio caído.
+  precio, ficha de estación con su gráfico y tooltip, panel de mercado completo, el
+  respaldo `data/` con el Ministerio caído y la función de descuentos de punta a punta
+  (incluido que el precio mostrado siga siendo el oficial y que el orden no cambie).
 
 ```bash
 npm install
 npx playwright install chromium
-npm test           # ejecuta las tres
+npm test           # ejecuta las cuatro
 ```
+
+Las capturas que simula el suite van fechadas **en relación con hoy**, no en fechas
+fijas: con fechas fijas los tests caducaban solos con el paso del tiempo.
+
+Si ya tienes un Chromium instalado y no quieres que Playwright se descargue el suyo
+(contenedores, CI sin red), `FUEL_CHROMIUM=/ruta/al/chrome npm run test:web`.
 
 ---
 
@@ -359,6 +449,8 @@ fuel-rapido/
 ├── mercado.html             Panel de mercado (página aparte)
 ├── viz.js                   Gráficos en SVG puro, sin librerías
 ├── marcas.js                Colores y distintivos de las cadenas
+├── promos.js                Descuentos de las cadenas (aviso, nunca recálculo)
+├── promociones.json         Condiciones verificadas a mano, con fecha y fuente
 ├── assets/icono.svg         Marca de la app (cabecera, favicon, iconos PWA)
 ├── assets/logo-pid.svg      Logo de Pelayo Ingeniería Digital (pantalla de arranque)
 ├── scripts/snapshot.mjs     Recolector del histórico de precios

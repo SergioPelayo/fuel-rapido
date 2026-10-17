@@ -16,9 +16,19 @@ fs.mkdirSync(path.join(TMP, 'test'));
 fs.copyFileSync(path.join(ROOT, 'scripts/snapshot.mjs'), path.join(TMP, 'scripts/snapshot.mjs'));
 
 /* Simulamos 10 días de capturas para que existan series, estadísticas y
-   agregados de mercado. Ballenoil (id 4) baja de 1,500 a 1,320; el resto quieto. */
+   agregados de mercado. Ballenoil (id 4) baja de 1,500 a 1,320; el resto quieto.
+
+   Las fechas son RELATIVAS a hoy (de hace 10 días a ayer), no fijas. Con fechas
+   fijas el suite caducaba: la ficha resume los últimos 30 días, así que en
+   cuanto la simulación se alejaba más de un mes, el máximo de la serie dejaba
+   de ser el precio del primer día y el test fallaba solo con el paso del
+   tiempo, sin que nadie hubiera tocado el código. */
 const PRECIOS_SIM = [1.500, 1.500, 1.460, 1.460, 1.400, 1.400, 1.400, 1.360, 1.320, 1.320];
 const MEDIA_SIM = PRECIOS_SIM.reduce((a, b) => a + b, 0) / PRECIOS_SIM.length;
+const selloDia = atras => {
+  const d = new Date(Date.now() - atras * 86400000);
+  return `${d.toISOString().slice(0, 10)}T09:00:00.000Z`;
+};
 PRECIOS_SIM.forEach((p, i) => {
   const m = JSON.parse(JSON.stringify(mock));
   m.ListaEESSPrecio[3]['Precio Gasolina 95 E5'] = String(p).replace('.', ',');
@@ -26,7 +36,7 @@ PRECIOS_SIM.forEach((p, i) => {
   execFileSync('node', ['scripts/snapshot.mjs'], {
     cwd: TMP, stdio: 'ignore',
     env: { ...process.env, FUEL_SOURCE: './test/src.json',
-           FUEL_STAMP: `2026-08-${String(i + 1).padStart(2, '0')}T09:00:00.000Z` }
+           FUEL_STAMP: selloDia(PRECIOS_SIM.length - i) }
   });
 });
 const PORT = 8099;
@@ -54,7 +64,10 @@ function check(name, cond, extra = '') {
 
 (async () => {
   await new Promise(r => server.listen(PORT, r));
-  const browser = await chromium.launch();
+  // FUEL_CHROMIUM permite usar un Chromium ya instalado (CI, contenedores sin
+  // descarga de navegadores). Sin esa variable, Playwright usa el suyo.
+  const browser = await chromium.launch(
+    process.env.FUEL_CHROMIUM ? { executablePath: process.env.FUEL_CHROMIUM } : {});
   const ctx = await browser.newContext({
     permissions: ['geolocation'],
     geolocation: { latitude: 36.1408, longitude: -5.4562 },  // Algeciras
@@ -329,6 +342,151 @@ function check(name, cond, extra = '') {
   const tags = await page.$$eval('.card .tag, #hero .tag', els => els.map(e => e.textContent.trim()));
   check('stats.csv se carga en segundo plano y marca las que están bajo su media',
         tags.some(t => /bajo su media|mínimo en 30/i.test(t)), tags.join(' | '));
+
+  /* ---------- Descuentos de las cadenas ---------- */
+  console.log('\n--- Descuentos de las cadenas ---');
+  await page.selectOption('#radiusSelect', '20');     // para que entre Shell (10,1 km)
+  await page.waitForTimeout(300);
+
+  check('Quien no usa estas apps no ve ni una palabra de ellas',
+        (await page.$$eval('.promo', e => e.length)) === 0);
+  check('El chip «Con mi descuento» no existe mientras no haya perfil',
+        await page.isHidden('#chipPromo'));
+
+  await page.click('.tab[data-panel="panelInfo"]');
+  await page.waitForTimeout(200);
+  const progs = await page.$$eval('.promo-head b', e => e.map(x => x.textContent.trim()));
+  check('Ajustes ofrece los cinco programas verificados', progs.length === 5, progs.join(' | '));
+  check('Shell aparece como «Mi Energía DISA», que es su programa real en España',
+        progs.includes('Mi Energía DISA') && !progs.some(p => /GO\s*\+/.test(p)), progs.join(' | '));
+  const txtBox = await page.textContent('#promosBox');
+  check('Y se dice que Mundo Galp queda fuera por no estar verificado',
+        /Mundo Galp/.test(txtBox) && /sin verificar/.test(txtBox));
+  check('Se indica la versión y la fecha de los datos', /v1\.1/.test(txtBox) && /17\/10\/2026/.test(txtBox));
+
+  await page.check('input[data-prog="waylet"]');
+  await page.waitForTimeout(200);
+  const tramo0 = await page.inputValue('select[data-tramo="waylet"]');
+  check('Al activar un programa se elige el tramo MÁS BAJO, nunca el más alto',
+        tramo0 === 'coche', tramo0);
+
+  await page.click('.tab[data-panel="panelList"]');
+  await page.waitForTimeout(300);
+  const ordenConPromo = await page.$$eval('.card .name', e => e.map(x => x.textContent.trim()));
+  const avisos1 = await page.$$eval('.promo', e => e.map(x => x.textContent.trim()));
+  check('El aviso sale en Repsol y sólo en Repsol', avisos1.length === 1, avisos1.join(' | '));
+  check('Dice los céntimos, la cadena y que es saldo, no surtidor',
+        /−10 cts con Waylet/.test(avisos1[0]) && /saldo en su app/.test(avisos1[0]), avisos1[0]);
+  check('Lleva la fecha en que se revisaron las condiciones',
+        /rev\. \d{2}\/\d{2}/.test(avisos1[0]), avisos1[0]);
+
+  const pRepsol = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('.card')].find(x => /Repsol/i.test(x.querySelector('.name').textContent));
+    return c ? c.querySelector('.price-col .p').textContent.trim() : null;
+  });
+  check('EL PRECIO QUE SE MUESTRA SIGUE SIENDO EL OFICIAL (1,629)',
+        pRepsol && pRepsol.startsWith('1,629'), pRepsol);
+  check('EL ORDEN NO CAMBIA al declarar un descuento', ordenConPromo[0] === 'Petroprix', ordenConPromo.join(' | '));
+  check('La destacada sigue siendo la más barata de verdad',
+        (await page.textContent('#hero .name')).trim() === 'Ballenoil');
+
+  await page.click('.tab[data-panel="panelInfo"]');
+  await page.selectOption('select[data-tramo="waylet"]', 'coche_completo');
+  await page.click('.tab[data-panel="panelList"]');
+  await page.waitForTimeout(300);
+  check('Al declarar un tramo superior, el aviso sube a 40 cts',
+        /−40 cts/.test(await page.textContent('.card .promo')),
+        (await page.textContent('.card .promo')).trim());
+
+  check('Con perfil, ya aparece el chip «Con mi descuento»', await page.isVisible('#chipPromo'));
+  await page.click('#chipPromo');
+  await page.waitForTimeout(300);
+  check('Sólo en ese modo explícito se reordena: gana Repsol (1,629 − 40 cts)',
+        (await page.textContent('#hero .name')).trim() === 'Repsol',
+        (await page.textContent('#hero .name')).trim());
+  check('Incluso ahí, el precio grande es el oficial del Ministerio',
+        (await page.textContent('#hero .price')).trim().startsWith('1,629'),
+        (await page.textContent('#hero .price')).trim());
+  check('El estimado va aparte y marcado como aproximado',
+        /≈ 1,229/.test(await page.textContent('#hero .promo')),
+        (await page.textContent('#hero .promo')).trim());
+  check('Y el rótulo del destacado avisa de que es con descuento',
+        /con tu descuento/i.test(await page.textContent('#hero .kicker')),
+        (await page.textContent('#hero .kicker')).trim());
+
+  await page.click('.chip[data-sort="precio"]');
+  await page.waitForTimeout(300);
+  check('Al volver a «Precio», manda otra vez el dato oficial',
+        (await page.textContent('#hero .name')).trim() === 'Ballenoil');
+
+  await page.click('.tab[data-panel="panelInfo"]');
+  await page.check('input[data-prog="mi_energia_disa"]');
+  await page.click('.tab[data-panel="panelList"]');
+  await page.waitForTimeout(300);
+  const lineaShell = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('.card')].find(x => /Shell/i.test(x.querySelector('.name').textContent));
+    return c ? c.querySelector('.promo').textContent.trim() : null;
+  });
+  check('Mi Energía DISA se presenta como descuento inmediato, no como saldo',
+        /al pagar/.test(lineaShell) && !/saldo/.test(lineaShell), lineaShell);
+
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.card')].find(x => /Repsol/i.test(x.querySelector('.name').textContent)).click();
+  });
+  await page.waitForSelector('.promo-ficha', { timeout: 5000 });
+  const ficha = (await page.textContent('.promo-ficha')).replace(/\s+/g, ' ').trim();
+  check('La ficha detalla el tramo declarado', /Tu tramo/.test(ficha), ficha.slice(0, 90));
+  check('La ficha explica que el saldo no baja el surtidor', /saldo/i.test(ficha));
+  check('La ficha avisa de la caducidad de la campaña', /caduca el 31\/10\/2026/.test(ficha), ficha.slice(-120));
+  check('La ficha enlaza la fuente oficial de la cadena',
+        /repsol\.es/.test(await page.getAttribute('.promo-ficha-enl', 'href')),
+        await page.getAttribute('.promo-ficha-enl', 'href'));
+  await page.click('#sheetCerrar');
+  await page.waitForTimeout(200);
+
+  // Si el histórico no carga, el aviso de descuento tiene que seguir ahí:
+  // son dos datos independientes y uno no debe llevarse al otro por delante.
+  await page.route('**/series/**', r => r.abort());
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.card')].find(x => /Repsol/i.test(x.querySelector('.name').textContent)).click();
+  });
+  await page.waitForSelector('#sheetCuerpo .viz-vacio', { timeout: 8000 });
+  check('Si el histórico falla, el aviso de descuento se mantiene',
+        await page.isVisible('.promo-ficha'));
+  await page.click('#sheetCerrar');
+  await page.unroute('**/series/**');
+  await page.waitForTimeout(200);
+
+  const alerta = await page.evaluate(async () => {
+    const j = await fetch('promociones.json').then(r => r.json());
+    j._revision.ultima = '2026-01-01';          // simula una revisión olvidada
+    Promos.cargar(j);
+    construirPromos();
+    render();
+    return {
+      caja: document.querySelector('.promo-alerta')?.textContent || '',
+      linea: document.querySelector('.promo')?.textContent || ''
+    };
+  });
+  check('Si la revisión se queda vieja, Ajustes lo advierte solo',
+        /sin revisar/.test(alerta.caja) && /\d+ días/.test(alerta.caja), alerta.caja.slice(0, 90));
+  check('Y cada aviso de la lista queda marcado como sin revisar',
+        /sin revisar/.test(alerta.linea), alerta.linea);
+
+  await page.evaluate(async () => {
+    Promos.cargar(await fetch('promociones.json').then(r => r.json()));
+    construirPromos();
+    render();
+  });
+  await page.click('.tab[data-panel="panelInfo"]');
+  await page.uncheck('input[data-prog="waylet"]');
+  await page.uncheck('input[data-prog="mi_energia_disa"]');
+  await page.click('.tab[data-panel="panelList"]');
+  await page.waitForTimeout(300);
+  check('Al desmarcar todo, los avisos desaparecen y el chip se esconde',
+        (await page.$$eval('.promo', e => e.length)) === 0 && await page.isHidden('#chipPromo'));
+  await page.selectOption('#radiusSelect', '10');
+  await page.waitForTimeout(300);
 
   /* ---------- Panel de mercado ---------- */
   console.log('\n--- Panel de mercado ---');
