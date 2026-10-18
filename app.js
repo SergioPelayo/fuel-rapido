@@ -533,6 +533,7 @@ function render() {
   const max = Math.max(...prices);
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
   const best = rows[0];
+  const conPromo = rows.slice(0, MAX_RESULTS).filter(tienePromo).length;
 
   /* --- Destacado --- */
   const savePerTank = (avg - best.price) * state.tank;
@@ -551,7 +552,7 @@ function render() {
     ${promoLinea(best)}
     <div class="bottom">
       <div>
-        <div class="price">${eur(best.price)}<small> €/L</small></div>
+        <div class="price">${eur(best.price)}<small> €/L</small>${promoBadge(best)}</div>
         ${savePerTank > 0.05
           ? `<div class="save">Ahorras ≈ ${eur(savePerTank, 2)} € por depósito de ${state.tank} L</div>`
           : `<div class="save">La más barata de la zona</div>`}
@@ -565,11 +566,12 @@ function render() {
   rows.slice(0, MAX_RESULTS).forEach((r, i) => {
     if (i === 0) return;
     const card = document.createElement('article');
-    card.className = 'card';
+    card.className = 'card' + (tienePromo(r) ? ' con-promo' : '');
     card.dataset.i = i;
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
-    card.setAttribute('aria-label', `${r.s.name}, ${eur(r.price)} euros por litro. Ver su histórico`);
+    card.setAttribute('aria-label', `${r.s.name}, ${eur(r.price)} euros por litro` +
+      (tienePromo(r) ? ', con descuento de uno de tus programas' : '') + '. Ver su histórico');
     const delta = r.price - min;
     const openTag = r.open === null ? ''
       : r.open ? '<span class="tag open">Abierto</span>'
@@ -595,6 +597,7 @@ function render() {
         <div>
           <div class="p${delta === 0 ? ' best' : ''}">${eur(r.price)} €</div>
           <div class="delta">${delta === 0 ? '—' : '+' + eur(delta) + ' €/L'}</div>
+          ${promoBadge(r)}
         </div>
         <a class="nav-btn" href="${navUrl(r.s)}" target="_blank" rel="noopener">Navegar</a>
       </div>
@@ -616,6 +619,10 @@ function render() {
     `<span>de <b>${eur(min)}</b> a <b>${eur(max)}</b> €/L</span>` +
     (max - min > 0.001
       ? `<span class="sep">·</span><span>hasta <b>${eur((max - min) * state.tank, 2)} €</b> de diferencia por depósito</span>`
+      : '') +
+    // Que se vea que los descuentos están puestos, y en cuántas aplican
+    (conPromo
+      ? `<span class="resumen-promo">${conPromo === 1 ? '1 con tu descuento' : conPromo + ' con tus descuentos'}</span>`
       : '');
 
   setStatus(`${rows.length} estaciones · ${state.origin.label} · ${state.radius} km`);
@@ -860,28 +867,49 @@ function promoLinea(r) {
   const a = Promos.aviso(r.s.name);
   if (!a) return '';
 
-  const natur = a.inmediato ? 'te lo descuentan al pagar'
-              : a.tipo === 'promocional' ? 'promoción de alta'
-              : 'saldo en su app, no en el surtidor';
-
-  let cabeza;
-  if (state.sort === 'descuento' && a.cts) {
-    cabeza = `≈ ${eur(r.price - a.cts / 100)} €/L con ${esc(a.nombre)}`;
+  /* La frase cambia según la naturaleza del programa, y no por capricho:
+     con un descuento inmediato PAGAS menos, con saldo pagas lo mismo y te
+     devuelven. Decir «pagas 1,429» de un saldo sería mentir. */
+  let cabeza, natur;
+  if (a.inmediato && a.cts) {
+    cabeza = `Pagas ≈ ${eur(r.price - a.cts / 100)} €/L con ${esc(a.nombre)}`;
+    natur  = 'descuento al pagar';
+  } else if (a.cts && state.sort === 'descuento') {
+    // Aquí el usuario ha pedido explícitamente ordenar por su descuento, así que
+    // le damos la cifra que explica el orden — pero diciendo de dónde sale.
+    cabeza = `Con tu saldo sale a ≈ ${eur(r.price - a.cts / 100)} €/L`;
+    natur  = `pagas ${eur(r.price)} y te devuelven ${a.cts} cts/L en ${esc(a.nombre)}`;
   } else if (a.cts) {
-    cabeza = `−${a.cts} cts con ${esc(a.nombre)}`;
+    cabeza = `−${a.cts} cts/L en saldo ${esc(a.nombre)}`;
+    natur  = 'vuelve a su app, no baja el surtidor';
   } else if (a.euros) {
     cabeza = `${eur(a.euros, 2)} € con ${esc(a.nombre)}`;
+    natur  = a.eurosEtiqueta ? a.eurosEtiqueta.toLowerCase() : 'promoción de alta';
   } else {
     return '';
   }
 
   const rev = Promos.fecha(a.verificado);
-  return `<div class="promo${a.inmediato ? ' ya' : ''}">${cabeza}` +
+  return `<div class="promo${a.inmediato ? ' ya' : ''}">` +
+         `<b>${cabeza}</b>` +
          `<span class="sep">·</span>${natur}` +
          (rev ? `<span class="sep">·</span>rev. ${rev}` : '') +
-         (Promos.vencida() ? `<span class="sep">·</span><b>sin revisar</b>` : '') +
+         (Promos.vencida() ? `<span class="sep">·</span><b class="ojo">sin revisar</b>` : '') +
          `</div>`;
 }
+
+/* La marca que se ve de un vistazo, al lado del precio. Lleva sólo la cifra:
+   el matiz de saldo frente a inmediato lo cuenta la línea de debajo. */
+function promoBadge(r) {
+  if (!hayPromos()) return '';
+  const a = Promos.aviso(r.s.name);
+  if (!a) return '';
+  if (a.cts)   return `<span class="promo-badge${a.inmediato ? ' ya' : ''}">−${a.cts} cts</span>`;
+  if (a.euros) return `<span class="promo-badge">${eur(a.euros, 2)} €</span>`;
+  return '';
+}
+
+const tienePromo = r => hayPromos() && !!Promos.aviso(r.s.name);
 
 /* Bloque de la ficha: aquí sí caben las condiciones enteras, que son lo que
    convierte un número en algo accionable. */
@@ -1010,6 +1038,49 @@ function construirPromos() {
     p.textContent = 'No se muestran, por no poder verificarlos: ' +
       fuera.map(o => `${o.nombre} (${o.motivo})`).join('; ') + '.';
     box.appendChild(p);
+  }
+
+  /* Contraste con el registro oficial. No cambia ninguna cifra: sólo dice qué
+     confirma una segunda fuente y qué no está en ella. */
+  if (Promos.hayOficiales()) {
+    const c = Promos.contraste();
+    if (c.length) {
+      const caja = document.createElement('div');
+      caja.className = 'promo-contraste';
+      const t = document.createElement('p');
+      t.className = 'promo-contraste-tit';
+      t.textContent = `Contraste con el registro del Ministerio · leído el ${Promos.fecha(Promos.leidoEl())}`;
+      caja.appendChild(t);
+
+      c.forEach(x => {
+        const l = document.createElement('p');
+        const marca = { coincide: '✓', discrepa: '!', no_consta: '—', desaparecido: '!', sin_cifra: '—' }[x.estado] || '—';
+        l.className = 'promo-contraste-l ' + x.estado;
+        // Un switch, no un objeto: en un objeto se evalúan TODAS las ramas, y
+        // la de «discrepa» leía un campo que en «no consta» no existe.
+        let txt;
+        switch (x.estado) {
+          case 'coincide':
+            txt = `declara ${x.oficialCts} cts/L, dentro de lo que mostramos`; break;
+          case 'discrepa':
+            txt = `declara ${x.oficialCts} cts/L y nosotros ${(x.nuestrasCts || []).join('/')} — conviene revisarlo`; break;
+          case 'desaparecido':
+            txt = 'ha dejado de figurar en el registro — conviene revisarlo'; break;
+          case 'sin_cifra':
+            txt = 'figura sin cuantía declarada'; break;
+          default:
+            txt = 'no figura en el registro';
+        }
+        l.textContent = `${marca} ${x.nombre}: ${txt}`;
+        caja.appendChild(l);
+      });
+
+      const n = document.createElement('p');
+      n.className = 'promo-contraste-l';
+      n.textContent = 'El registro no lleva fechas de validez, así que sirve para contrastar, no para fiarse.';
+      caja.appendChild(n);
+      box.appendChild(caja);
+    }
   }
 
   const pie = document.createElement('p');
@@ -1279,6 +1350,10 @@ async function init() {
     loadData(),
     (typeof Promos !== 'undefined' ? Promos.init(grab) : Promise.resolve())
   ]);
+  // El registro oficial es un extra de Ajustes: ni bloquea ni se espera.
+  if (typeof Promos !== 'undefined') {
+    Promos.initOficiales(grab).then(ok => { if (ok) construirPromos(); });
+  }
   construirPromos();
   sincronizarPromos();
 

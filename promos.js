@@ -228,10 +228,72 @@ const Promos = (() => {
   const version = () => (datos && datos._version) || '';
   const hayDatos = () => lista.length > 0;
 
+  /* ---------- Registro oficial del Ministerio ----------
+     Las operadoras están obligadas a declarar sus planes de descuento, y el
+     Geoportal los publica. Lo usamos SÓLO como segunda fuente para contrastar
+     nuestras cifras, nunca como dato que se muestre al conductor: el registro
+     no lleva fechas de validez (2 de 84 planes) y arrastra promociones de
+     lanzamiento. Lo recoge scripts/planes.mjs una vez al día. */
+
+  let oficial = null;
+
+  function cargarOficiales(json) {
+    oficial = (json && Array.isArray(json.planes)) ? json : null;
+    return oficial;
+  }
+
+  async function initOficiales(grab) {
+    try {
+      const json = typeof grab === 'function'
+        ? await grab('data/planes-oficiales.json', 'json')
+        : await fetch('data/planes-oficiales.json').then(r => r.json());
+      return cargarOficiales(json);
+    } catch (e) { oficial = null; return null; }
+  }
+
+  const hayOficiales = () => !!(oficial && oficial.planes.length);
+  const oficiales    = () => (oficial ? oficial.planes.slice() : []);
+  const leidoEl      = () => (oficial && oficial._leido ? oficial._leido.slice(0, 10) : '');
+
+  /* Para cada programa nuestro: ¿qué dice el registro? Cuatro respuestas
+     posibles, y «no consta» es tan informativa como las demás. */
+  function contraste() {
+    if (!hayOficiales()) return [];
+    return lista.map(p => {
+      const enl = p.oficial || {};
+      const nuestras = (p.tramos || []).map(t => t.cts).filter(n => typeof n === 'number');
+
+      if (!enl.nombre) {
+        return { id: p.id, nombre: p.nombre, estado: 'no_consta', nuestrasCts: nuestras, oficialCts: null, nota: enl.nota || '' };
+      }
+      const plan = oficial.planes.find(x =>
+        limpia(x.nombre) === limpia(enl.nombre) &&
+        (!enl.operador || limpia(x.operador) === limpia(enl.operador)));
+
+      if (!plan) return { id: p.id, nombre: p.nombre, estado: 'desaparecido', nuestrasCts: nuestras, oficialCts: null, nota: enl.nota || '' };
+      if (!plan.util || plan.unidad !== 'cts/litro') {
+        return { id: p.id, nombre: p.nombre, estado: 'sin_cifra', nuestrasCts: nuestras, oficialCts: null, nota: enl.nota || '' };
+      }
+
+      const dentro = nuestras.length
+        ? plan.cifra >= Math.min(...nuestras) && plan.cifra <= Math.max(...nuestras)
+        : false;
+      return {
+        id: p.id, nombre: p.nombre,
+        estado: dentro ? 'coincide' : 'discrepa',
+        oficialCts: plan.cifra,
+        nuestrasCts: nuestras,
+        operador: plan.operador,
+        nota: enl.nota || ''
+      };
+    });
+  }
+
   return {
     cargar, init, programas, ocultos, para, programa, tramo,
     activo, elegido, elegir, olvidar, cuantos, aviso, cts,
-    revision, dias, vencida, fecha, version, hayDatos, limpia, nada
+    revision, dias, vencida, fecha, version, hayDatos, limpia, nada,
+    cargarOficiales, initOficiales, hayOficiales, oficiales, leidoEl, contraste
   };
 })();
 

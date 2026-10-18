@@ -3,7 +3,9 @@
    verificada en el fichero, y que lo caducado desaparezca solo. */
 
 import { createRequire } from 'module';
-import { readFileSync } from 'fs';
+import { readFileSync, mkdtempSync, mkdirSync, rmSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -30,7 +32,9 @@ function check(name, cond, extra = '') {
 const ids = () => Promos.programas().map(p => p.id).sort().join(',');
 
 console.log('--- El fichero de datos ---');
-check('promociones.json es la v1.1', FICHERO._version === '1.1', FICHERO._version);
+check('promociones.json es la v1.2', FICHERO._version === '1.2', FICHERO._version);
+check('Cada programa declara con qué plan oficial se contrasta, o que no consta',
+      FICHERO.programas.every(p => p.oficial && 'nombre' in p.oficial && p.oficial.nota));
 check('Trae los seis programas', FICHERO.programas.length === 6, String(FICHERO.programas.length));
 check('Todos declaran rótulos', FICHERO.programas.every(p => Array.isArray(p.rotulos) && p.rotulos.length));
 check('Todos declaran fuente y fecha de verificación',
@@ -153,6 +157,78 @@ check('Un programa verificado pero sin nada que contar se ignora',
       Promos.cargar({ programas: [{ id: 'z', nombre: 'Z', confianza: 'alta', rotulos: ['Z'], tramos: [], extras: [] }] }).length === 0);
 check('Fecha formateada para la interfaz', Promos.fecha('2026-10-17') === '17/10', Promos.fecha('2026-10-17'));
 check('Fecha vacía no revienta', Promos.fecha('') === '' && Promos.fecha(null) === '');
+
+console.log('\n--- Registro oficial del Ministerio (scripts/planes.mjs) ---');
+/* El parser se prueba de punta a punta: se ejecuta el recolector contra el
+   fixture XML y se lee lo que escribe, igual que hará el bot cada día. */
+const TMP = mkdtempSync(path.join(tmpdir(), 'fr-planes-'));
+mkdirSync(path.join(TMP, 'scripts'));
+execFileSync('node', [path.join(ROOT, 'scripts/planes.mjs')], {
+  cwd: TMP, stdio: 'ignore',
+  env: { ...process.env, FUEL_PLANES_SOURCE: path.join(ROOT, 'test/planes-mock.xml') }
+});
+const REG = JSON.parse(readFileSync(path.join(TMP, 'data/planes-oficiales.json'), 'utf8'));
+
+check('Lee los diez planes del fixture', REG._total === 10, String(REG._total));
+check('Marca como útiles sólo los que traen cifra y unidad', REG._utiles === 8, String(REG._utiles));
+check('El cero de relleno no cuenta como cifra útil',
+      REG.planes.find(p => p.nombre === 'Repsol Más').util === false);
+check('Un plan sin cuantía declarada tampoco',
+      REG.planes.find(p => p.nombre === 'Solred Más').util === false);
+check('Distingue céntimos por litro de porcentaje',
+      REG.planes.find(p => p.nombre === 'Repsol Máxima').unidad === '%' &&
+      REG.planes.find(p => p.nombre === 'Programa miBP').unidad === 'cts/litro');
+check('Convierte la cuantía a número', REG.planes.find(p => p.nombre === 'Programa miBP').cifra === 3);
+check('Conserva los decimales reales',
+      REG.planes.find(p => /EUROTRAFIC/.test(p.nombre)).cifra === 1.1);
+check('Un mismo plan en dos operadores se guarda por separado',
+      REG.planes.filter(p => p.nombre === 'MI ENERGIA DISA').length === 2,
+      JSON.stringify(REG.planes.filter(p => p.nombre === 'MI ENERGIA DISA').map(p => p.cifra)));
+check('Guarda el segmento de destinatario, que es lo que no usa nadie',
+      [...new Set(REG.planes.map(p => p.destinatario))].length === 4,
+      [...new Set(REG.planes.map(p => p.destinatario))].join(' | '));
+check('Desescapa las entidades XML',
+      REG.planes.some(p => p.nombre === 'tamoil club & co'),
+      REG.planes.map(p => p.nombre).join(' | '));
+check('Anota la fecha de lectura', /^\d{4}-\d{2}-\d{2}T/.test(REG._leido), REG._leido);
+check('Y avisa de que el registro no lleva fechas de validez', /no sustituyen/i.test(REG._aviso));
+
+console.log('\n--- Contraste: qué confirma el registro y qué no ---');
+Promos.cargar(FICHERO, '2026-10-17');
+check('Sin registro cargado no hay contraste', Promos.contraste().length === 0 && Promos.hayOficiales() === false);
+Promos.cargarOficiales(REG);
+check('Con registro cargado, hay contraste', Promos.hayOficiales() === true);
+const porId = Object.fromEntries(Promos.contraste().map(x => [x.id, x]));
+check('Mi BP: el registro confirma nuestra cifra',
+      porId.mibp.estado === 'coincide' && porId.mibp.oficialCts === 3, JSON.stringify(porId.mibp));
+check('Mi Energía DISA: el registro confirma los 5 cts',
+      porId.mi_energia_disa.estado === 'coincide' && porId.mi_energia_disa.oficialCts === 5,
+      JSON.stringify(porId.mi_energia_disa));
+check('Waylet: no figura en el registro, y se dice',
+      porId.waylet.estado === 'no_consta', JSON.stringify(porId.waylet));
+check('Moeve gow tampoco', porId.moeve_gow.estado === 'no_consta');
+check('Ballenoil tampoco', porId.ballenoil.estado === 'no_consta');
+check('El contraste NO altera ninguna cifra mostrada',
+      Promos.programa('mibp').tramos[0].cts === 3 && Promos.programa('mi_energia_disa').tramos[0].cts === 5);
+check('Un programa cuyo plan desaparezca del registro se marca para revisar', (() => {
+  const recortado = { ...REG, planes: REG.planes.filter(p => p.nombre !== 'Programa miBP') };
+  Promos.cargarOficiales(recortado);
+  const r = Promos.contraste().find(x => x.id === 'mibp');
+  Promos.cargarOficiales(REG);
+  return r.estado === 'desaparecido';
+})());
+check('Si el registro declara una cifra fuera de nuestro rango, se marca discrepancia', (() => {
+  const torcido = { ...REG, planes: REG.planes.map(p => p.nombre === 'Programa miBP' ? { ...p, cifra: 25 } : p) };
+  Promos.cargarOficiales(torcido);
+  const r = Promos.contraste().find(x => x.id === 'mibp');
+  Promos.cargarOficiales(REG);
+  return r.estado === 'discrepa' && r.oficialCts === 25;
+})());
+check('Un registro vacío o roto no rompe nada',
+      Promos.cargarOficiales(null) === null && Promos.contraste().length === 0 &&
+      Promos.cargarOficiales({ planes: [] }) !== undefined);
+
+rmSync(TMP, { recursive: true, force: true });
 
 console.log(fails.length ? `\n✖ ${fails.length} comprobaciones fallidas` : '\n✔ Todas las comprobaciones OK');
 process.exit(fails.length ? 1 : 0);

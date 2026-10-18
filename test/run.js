@@ -14,6 +14,14 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'fr-web-'));
 fs.mkdirSync(path.join(TMP, 'scripts'));
 fs.mkdirSync(path.join(TMP, 'test'));
 fs.copyFileSync(path.join(ROOT, 'scripts/snapshot.mjs'), path.join(TMP, 'scripts/snapshot.mjs'));
+fs.copyFileSync(path.join(ROOT, 'scripts/planes.mjs'), path.join(TMP, 'scripts/planes.mjs'));
+
+/* El registro oficial de planes de descuento, desde el fixture: así la app
+   encuentra data/planes-oficiales.json igual que lo encontrará en producción. */
+execFileSync('node', ['scripts/planes.mjs'], {
+  cwd: TMP, stdio: 'ignore',
+  env: { ...process.env, FUEL_PLANES_SOURCE: path.join(ROOT, 'test/planes-mock.xml') }
+});
 
 /* Simulamos 10 días de capturas para que existan series, estadísticas y
    agregados de mercado. Ballenoil (id 4) baja de 1,500 a 1,320; el resto quieto.
@@ -359,10 +367,29 @@ function check(name, cond, extra = '') {
   check('Ajustes ofrece los cinco programas verificados', progs.length === 5, progs.join(' | '));
   check('Shell aparece como «Mi Energía DISA», que es su programa real en España',
         progs.includes('Mi Energía DISA') && !progs.some(p => /GO\s*\+/.test(p)), progs.join(' | '));
+  /* Contraste con el registro oficial del Ministerio */
+  await page.waitForSelector('.promo-contraste', { timeout: 8000 });
+  const contraste = (await page.textContent('.promo-contraste')).replace(/\s+/g, ' ').trim();
+  check('Ajustes contrasta nuestras cifras con el registro del Ministerio',
+        /registro del Ministerio/i.test(contraste), contraste.slice(0, 70));
+  check('El registro confirma Mi BP y Mi Energía DISA',
+        /Mi BP: declara 3 cts\/L/.test(contraste) && /Mi Energía DISA: declara 5 cts\/L/.test(contraste),
+        contraste.slice(0, 200));
+  check('Y dice claramente que Waylet no figura en él',
+        /Waylet: no figura en el registro/.test(contraste), contraste);
+  check('Con la advertencia de que el registro no lleva fechas',
+        /no lleva fechas de validez/.test(contraste));
+  const cifrasTrasContraste = await page.evaluate(() =>
+    [Promos.programa('mibp').tramos[0].cts, Promos.programa('mi_energia_disa').tramos[0].cts]);
+  check('EL CONTRASTE NO TOCA NINGUNA CIFRA MOSTRADA',
+        cifrasTrasContraste[0] === 3 && cifrasTrasContraste[1] === 5, cifrasTrasContraste.join('/'));
+
   const txtBox = await page.textContent('#promosBox');
   check('Y se dice que Mundo Galp queda fuera por no estar verificado',
         /Mundo Galp/.test(txtBox) && /sin verificar/.test(txtBox));
-  check('Se indica la versión y la fecha de los datos', /v1\.1/.test(txtBox) && /17\/10\/2026/.test(txtBox));
+  check('Se indica la versión y la fecha de los datos',
+        /v\d+\.\d+/.test(txtBox) && /\d{2}\/\d{2}\/\d{4}/.test(txtBox),
+        (txtBox.match(/Datos v[^·]*·[^·]*/) || [''])[0].trim());
 
   await page.check('input[data-prog="waylet"]');
   await page.waitForTimeout(200);
@@ -376,9 +403,36 @@ function check(name, cond, extra = '') {
   const avisos1 = await page.$$eval('.promo', e => e.map(x => x.textContent.trim()));
   check('El aviso sale en Repsol y sólo en Repsol', avisos1.length === 1, avisos1.join(' | '));
   check('Dice los céntimos, la cadena y que es saldo, no surtidor',
-        /−10 cts con Waylet/.test(avisos1[0]) && /saldo en su app/.test(avisos1[0]), avisos1[0]);
+        /−10 cts\/L en saldo Waylet/.test(avisos1[0]) && /no baja el surtidor/.test(avisos1[0]), avisos1[0]);
   check('Lleva la fecha en que se revisaron las condiciones',
         /rev\. \d{2}\/\d{2}/.test(avisos1[0]), avisos1[0]);
+
+  /* Que se VEA. No basta con que el dato esté: tiene que saltar a la vista
+     mientras bajas por la lista. */
+  const senales = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('.card')].find(x => /Repsol/i.test(x.querySelector('.name').textContent));
+    const otra = [...document.querySelectorAll('.card')].find(x => /Plenoil/i.test(x.querySelector('.name').textContent));
+    const b = c && c.querySelector('.promo-badge');
+    return {
+      badge: b ? b.textContent.trim() : null,
+      badgeFondo: b ? getComputedStyle(b).backgroundColor : null,
+      badgeTam: b ? parseFloat(getComputedStyle(b).fontSize) : 0,
+      lineaTam: c ? parseFloat(getComputedStyle(c.querySelector('.promo b')).fontSize) : 0,
+      marcada: c ? c.classList.contains('con-promo') : false,
+      canto: c ? getComputedStyle(c, '::before').backgroundColor : null,
+      sinPromoNoMarcada: otra ? !otra.classList.contains('con-promo') : false,
+      resumen: document.querySelector('#resumen').textContent
+    };
+  });
+  check('La pastilla con la cifra va pegada al precio', senales.badge === '−10 cts', senales.badge);
+  check('Y es sólida, no un texto tenue', /rgb\(166, 180, 255\)/.test(senales.badgeFondo || ''), senales.badgeFondo);
+  check('Con cuerpo suficiente para leerse de un vistazo (≥12px)',
+        senales.badgeTam >= 12 && senales.lineaTam >= 13, `pastilla ${senales.badgeTam}px · línea ${senales.lineaTam}px`);
+  check('La tarjeta queda marcada con un canto de color',
+        senales.marcada && /rgb\(166, 180, 255\)/.test(senales.canto || ''), senales.canto);
+  check('Y las estaciones sin descuento NO se marcan', senales.sinPromoNoMarcada);
+  check('La tira de resumen dice en cuántas se te aplica',
+        /con tus? descuentos?/.test(senales.resumen), senales.resumen.replace(/\s+/g, ' ').trim());
 
   const pRepsol = await page.evaluate(() => {
     const c = [...document.querySelectorAll('.card')].find(x => /Repsol/i.test(x.querySelector('.name').textContent));

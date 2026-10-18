@@ -28,6 +28,13 @@ jobs:
         id: snap
         run: node scripts/snapshot.mjs
 
+      # Extra, no crítico: el registro oficial de planes de descuento del
+      # Geoportal. Se refresca una vez al día y falla en blando, así que si el
+      # Geoportal está caído la captura de precios sigue su camino.
+      - name: Registro oficial de planes de descuento
+        continue-on-error: true
+        run: node scripts/planes.mjs
+
       - name: Guardar en el repositorio
         run: |
           if [ -z "$(git status --porcelain data)" ]; then

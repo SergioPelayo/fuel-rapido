@@ -342,16 +342,40 @@ body.pagina-mercado .status{max-width:none}
    como lo mismo. Texto comprobado a 6,6:1 o mejor sobre la tarjeta y sobre el
    destacado, que tiene fondo verde. */
 .promo{
-  display:flex;flex-wrap:wrap;align-items:center;gap:5px;
-  margin-top:8px;padding:5px 8px;border-radius:8px;
-  background:rgba(139,156,247,.13);border:1px solid rgba(139,156,247,.38);
-  color:#c3cdfb;font-size:11.5px;font-weight:600;line-height:1.35;
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  margin-top:8px;padding:8px 10px;border-radius:10px;
+  background:rgba(139,156,247,.16);border:1px solid rgba(166,180,255,.5);
+  color:#c3cdfb;font-size:12.5px;font-weight:600;line-height:1.4;
 }
 .promo .sep{opacity:.45}
-.card>.promo{width:100%;margin-top:0}   /* a lo ancho de la tarjeta: cabe en una línea */
-.promo b{color:#e2e7fe;font-weight:800}
-.promo.ya{background:rgba(139,156,247,.2);border-color:rgba(166,180,255,.6);color:#d6dcfd}
-.hero .promo{margin-top:10px}
+.card>.promo{width:100%;margin-top:2px}   /* a lo ancho de la tarjeta: cabe en una línea */
+.promo b{color:#eef1ff;font-weight:800;font-size:13.5px}
+.promo b.ojo{color:#fcd9a4}
+.promo.ya{background:rgba(139,156,247,.24);border-color:rgba(166,180,255,.75)}
+.hero .promo{margin-top:11px}
+
+/* La pastilla que se ve de un vistazo, pegada al precio. Sólida a propósito:
+   es la señal de «aquí se te está aplicando algo», y tiene que ganar al ojo
+   sin usar el verde, que en esta app significa «precio barato». */
+.promo-badge{
+  display:inline-block;margin-top:5px;padding:3px 8px;border-radius:7px;
+  background:#a6b4ff;color:#11161f;
+  font-size:12.5px;font-weight:800;letter-spacing:-.2px;white-space:nowrap;
+}
+.promo-badge.ya{box-shadow:0 0 0 2px rgba(166,180,255,.28)}
+.hero .price .promo-badge{margin:0 0 0 10px;vertical-align:middle;font-size:14px;padding:4px 10px}
+
+/* Canto izquierdo: al bajar por la lista se ve en cuáles aplica tu descuento */
+.card.con-promo{border-color:rgba(166,180,255,.34)}
+.card.con-promo::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#a6b4ff;
+}
+
+.resumen-promo{
+  padding:2px 8px;border-radius:999px;
+  background:rgba(166,180,255,.18);border:1px solid rgba(166,180,255,.45);
+  color:#c3cdfb;font-weight:700;
+}
 
 /* Bloque de la ficha de estación */
 .promo-ficha{
@@ -375,6 +399,17 @@ body.pagina-mercado .status{max-width:none}
 .promo-head i{display:block;margin-top:2px;font-style:normal;font-size:11.5px;color:var(--txt-dim)}
 .promo-sel{width:100%;margin-top:9px}
 .promo-cond{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--txt-dim)}
+/* Contraste con el registro oficial: informativo, nunca protagonista */
+.promo-contraste{
+  margin:12px 0 4px;padding:10px 12px;border-radius:12px;
+  background:var(--card);border:1px solid var(--line);
+}
+.promo-contraste-tit{margin:0 0 7px;font-size:12px;font-weight:800;color:var(--txt-dim);letter-spacing:.2px}
+.promo-contraste-l{margin:0 0 4px;font-size:11.5px;line-height:1.45;color:var(--txt-dim)}
+.promo-contraste-l.coincide{color:#8ef0b6}
+.promo-contraste-l.discrepa,.promo-contraste-l.desaparecido{color:#fcd9a4}
+.promo-contraste-l:last-child{margin-bottom:0;opacity:.75}
+
 .promo-alerta{
   margin:0 0 10px;padding:10px 12px;border-radius:12px;font-size:12.5px;line-height:1.45;
   background:#3a2410;border:1px solid #6b4318;color:#fcd9a4;

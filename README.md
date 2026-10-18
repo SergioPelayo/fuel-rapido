@@ -307,6 +307,36 @@ No hay API de descuentos, ni la habrá: son programas comerciales cerrados. La
 | `verificado` | Se imprime en cada aviso: `rev. 17/10`. |
 | `incidencias` | Contradicciones y lagunas de las webs oficiales. No se muestran; son notas para la siguiente revisión. |
 
+### La segunda fuente: el registro oficial del Ministerio
+
+Las operadoras al por mayor y las emisoras de tarjetas están **obligadas por
+norma** a declarar al Ministerio sus planes de descuento: nombre, cuantía en
+céntimos por litro o porcentaje, y segmento de beneficiario. El Geoportal lo
+publica en abierto, sin clave, y `scripts/planes.mjs` lo recoge una vez al día
+en `data/planes-oficiales.json`:
+
+```
+https://geoportalgasolineras.es/geoportal/rest/discountPlans
+```
+
+**No sustituye a `promociones.json`,** y conviene saber por qué:
+
+- **Las tres apps grandes no están.** Ni Waylet, ni Moeve gow, ni Mundo Galp. De
+  Repsol constan sus tarjetas, no su app.
+- **Casi no hay fechas.** 2 de 84 planes traen fecha de validez, así que un plan
+  muerto puede quedarse ahí años. El registro lo demuestra solo: la entrada de
+  Mi Energía DISA a 10 cts/L se describe como «promoción de lanzamiento».
+- **No dice en qué estaciones aplica cada plan.**
+
+Sirve para otra cosa, y es valiosa: **contrastar**. *Ajustes* muestra qué
+confirma el registro (hoy, Mi BP a 3 cts/L y Mi Energía DISA a 5) y qué no
+figura en él. Si alguna vez declara una cifra fuera de nuestro rango, o un plan
+desaparece, la app lo marca para revisar. Ninguna cifra del registro se muestra
+nunca como dato propio.
+
+El recolector falla en blando: si el Geoportal no responde, la captura horaria
+de precios sigue su camino.
+
 ### Mantenimiento
 
 Pasados **45 días** sin revisar, la app lo advierte sola en *Ajustes* y marca
@@ -402,18 +432,19 @@ tengan instalada se actualicen.
 
 ## Tests
 
-Cuatro baterías de comprobaciones automáticas, **224 en total**:
+Cuatro baterías de comprobaciones automáticas, **259 en total**:
 
 - `npm run test:snapshot` (25) — el recolector: detección de cambios, comillas del CSV,
   estaciones nuevas, ruido de redondeo y las salvaguardas ante respuestas anómalas.
 - `npm run test:series` (30) — simula 10 días de capturas sobre 60 estaciones y verifica
   las series por estación, la reconstrucción de cierres diarios, las estadísticas de
   30 días y los agregados de mercado (sin duplicar días al reejecutar).
-- `npm run test:promos` (64) — la lógica de descuentos sin navegador: emparejado de
+- `npm run test:promos` (88) — la lógica de descuentos sin navegador: emparejado de
   rótulos, elección de tramo, que lo caducado y lo no verificado desaparezcan solos,
-  el aviso de revisión vencida y que **ninguna cifra mostrada salga de algo que no
-  esté escrito en `promociones.json`**.
-- `npm run test:web` (105) — la app en un navegador sin interfaz: orden por
+  el aviso de revisión vencida, el parser del registro oficial y el contraste contra
+  él, y que **ninguna cifra mostrada salga de algo que no esté escrito en
+  `promociones.json`**.
+- `npm run test:web` (116) — la app en un navegador sin interfaz: orden por
   precio/distancia/ahorro, radios, filtros, parser de horarios, enlaces de navegación,
   mapa, caché, pantalla de arranque, marca propia sin emojis, distintivos de cadena y
   sus colores, medidor de
@@ -454,6 +485,7 @@ fuel-rapido/
 ├── assets/icono.svg         Marca de la app (cabecera, favicon, iconos PWA)
 ├── assets/logo-pid.svg      Logo de Pelayo Ingeniería Digital (pantalla de arranque)
 ├── scripts/snapshot.mjs     Recolector del histórico de precios
+├── scripts/planes.mjs       Registro oficial de planes de descuento (1 vez/día)
 ├── data/                    Lo genera el recolector (catálogo, precios, series, mercado)
 ├── test/                    Tests automáticos (recolector + Playwright)
 ├── .github/workflows/
