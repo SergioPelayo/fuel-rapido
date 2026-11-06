@@ -1,6 +1,6 @@
 {
-  "_version": "1.2",
-  "_generado": "2026-10-17",
+  "_version": "1.3",
+  "_generado": "2026-11-06",
   "_aviso": "Condiciones recopiladas de las webs oficiales de cada programa. NO son precios garantizados: dependen de a qué se haya acogido cada usuario. La app debe mostrarlas como aviso, nunca sumarlas al precio oficial del Ministerio.",
   "_confianza": {
     "alta": "verificado en fuente oficial de la cadena, con cifras y condiciones explícitas",
@@ -10,10 +10,11 @@
   "_revision": {
     "cadencia_dias": 30,
     "avisar_si_supera_dias": 45,
-    "ultima": "2026-10-17",
-    "proxima_prevista": "2026-11-16"
+    "ultima": "2026-11-02",
+    "proxima_prevista": "2026-12-02"
   },
   "_cambios": [
+    "1.3 (2026-11-02): Waylet y Moeve gow prorrogados, ninguno caducado. Repsol mueve el duplicar saldo del 31/10 al 30/11/2026 y con ello la Tarjeta Waylet deja de estar caducada; se separan los dos seguros del comparador (coche y hogar, 5 cts cada uno) y se documenta que los tramos 10/20/30/40 son los YA DUPLICADOS. Moeve amplía «Estamos Contigo» al 31/12/2026 y baja a confianza media: moeve.com bloquea la lectura automática y la única fuente sigue siendo prensa. miBP y Mi Energía DISA se confirman sin cambio de cifras, con más topes y condiciones literales. Mundo Galp entra por fin: por primera vez hay cifra por litro en fuente oficial viva (Anexo I: «10 cent/litro en combustibles Evologic, HVO y GLP», «5 cent/litro en el resto de productos»). Por decisión de Sergio del 06/11/2026 pasa de sin_confirmar a media con un único tramo de 10 cts para Evologic, HVO y GLP; el de 5 cts se deja fuera porque no nombra gasolina ni gasóleo, y el mecanismo sigue sin constar. Ballenoil sin cambios: su web también ha dejado de permitir la lectura automática.",
     "1.2 (2026-10-18): cada programa declara con qué plan del registro oficial del Ministerio se contrasta (campo oficial), o null si no consta. Waylet, Moeve gow, Mundo Galp y Ballenoil NO figuran en ese registro: comprobado sobre los 84 planes publicados en el Geoportal.",
     "1.1 (2026-10-17): Shell resuelto. El programa vigente en España no es Shell GO+ sino Mi Energía DISA, de Grupo DISA, licenciatario de Shell en España; verificado 5 y 3 cts/L. Entrada shell_go sustituida por mi_energia_disa, con rótulos SHELL y DISA. Galp sigue sin confirmar, con motivo documentado mejor: su app ya solo habla de puntos canjeables, no de céntimos por litro.",
     "1.0 (2026-10-17): primera recopilación de los seis programas."
@@ -55,29 +56,38 @@
       ],
       "extras": [
         {
-          "etiqueta": "Seguro contratado por su comparador",
+          "etiqueta": "Seguro de coche por su comparador",
+          "cts": 5
+        },
+        {
+          "etiqueta": "Seguro de hogar por su comparador",
           "cts": 5
         },
         {
           "etiqueta": "Tarjeta Waylet (promo)",
           "cts": 5,
-          "caduca": "2026-10-31"
+          "caduca": "2026-11-30"
         }
       ],
-      "topes": "No publicados en la página consultada; remite a las condiciones del programa.",
-      "caduca": "2026-10-31",
-      "caduca_nota": "Caduca la promoción de duplicar saldo, no el programa base.",
+      "topes": "No se publican máximos de litros ni de importe. El saldo sólo caduca si se da de baja en Waylet o si no hace ninguna transacción con Waylet durante 12 meses. Quedan excluidos los pagos con tarjetas Solred.",
+      "caduca": "2026-11-30",
+      "caduca_nota": "Caduca la promoción de duplicar saldo, no el programa base. Prorrogada del 31/10/2026 al 30/11/2026.",
       "confianza": "alta",
-      "fuente": "https://www.repsol.es/particulares/asesoramiento-consumo/10-centimos-descuento-gasolina/",
-      "verificado": "2026-10-17",
+      "fuente": "https://www.repsol.es/particulares/vehiculos/estaciones-de-servicio/promociones/duplica-tu-saldo-waylet/",
+      "verificado": "2026-11-02",
       "incidencias": [
-        "La propia página se contradice: el título dice 'hasta 20 cts/l' y el cuerpo detalla hasta 40.",
-        "No publica topes de litros ni caducidad del saldo acumulado."
+        "PRÓRROGA CONFIRMADA en fuente oficial: «Consigue el doble de saldo en Waylet en repostajes hasta el 30/11 y 5 cts./l más pagando con la Tarjeta Waylet» y «Todos los días hasta el 30/11 duplica tu saldo pagando con Waylet tus repostajes». La nota de prensa de Repsol del 27/10/2026 lo respalda: «La compañía mantendrá hasta el próximo 30 de noviembre los descuentos en carburantes para sus clientes particulares y profesionales».",
+        "La propia web arrastra el 31/10 en cuatro sitios: el paso «¿Cómo funciona?» sigue diciendo «Hasta el 31/10, todos los días ¡hasta 55 cts./l con tus repostajes!», la meta descripción de la promoción, la página de la Tarjeta Waylet («*Promoción válida todos los días desde 28/08 hasta el 31/10») y la página explicativa del saldo («hasta el 31 de octubre de 2026»). Se toma el 30/11 por ser la fecha del cuerpo de la promoción y de la nota de prensa.",
+        "El techo anunciado sigue siendo contradictorio: 20 cts en el título y la meta de la página de asesoramiento, 40 en la tabla de energías («En Repsol te damos hasta 40 cts./l de saldo en Waylet»), 45 en el titular de la Tarjeta Waylet y 55 en la promoción («Si añades seguros y la nueva tarjeta Waylet a tus energías contratadas, podrás conseguir hasta 55 cts./l»). Cuadra como 40 + 5 tarjeta + 5 seguro de coche + 5 seguro de hogar, pero ninguna página lo dice así.",
+        "AVISO PARA LA PRÓXIMA REVISIÓN: la promoción dice «Si eres miembro de Waylet, en vez de 5 cts./ l ahora ahorras 10 cts./l en saldo» y «Si tienes la luz con Repsol, en vez de 10 cts./l ahorras 20 cts./l». Es decir, los tramos 10/20/30/40 que registramos son los YA DUPLICADOS, y el programa base fuera de promoción sería 5/10/15/20. No se registra ese desdoble porque la página de asesoramiento publica 10/20/30/40 como tarifa normal y las dos lecturas conviven sin aclararse. Si el 30/11 no hay prórroga, hay que resolverlo antes de volver a mostrar cifra.",
+        "El saldo procedente de las energías contratadas puede estar más limitado que el resto: la página del saldo dice en sus preguntas que es «únicamente para repostajes y recargas», mientras el cuerpo de la misma página lo da por gastable en lavados, tienda, aparcamiento SER y tarjetas regalo.",
+        "Las bases legales de la promoción (PDF duplica-saldo-noviembre-2026.pdf) no se han leído. Si hay topes de litros o de importe, estarán ahí.",
+        "Los 45 cts/L que cita la prensa para flotas son otro público: la nota de prensa da a transportistas y autónomos con tarjeta Solred «un descuento automático en su factura de al menos 10 céntimos por litro», mientras la web de particulares habla de 5 cts/L adicionales en factura. Fuera del alcance de la app."
       ],
       "oficial": {
         "nombre": null,
         "operador": "EMPRESAS DEL GRUPO REPSOL",
-        "nota": "La app Waylet no consta en el registro; de Repsol sólo constan sus tarjetas."
+        "nota": "La app Waylet no consta en el registro; de Repsol sólo constan sus tarjetas (Repsol Más Visa 3 cts/L, Repsol Más 0 cts/L, Repsol Máxima 2 %)."
       }
     },
     {
@@ -105,14 +115,21 @@
         }
       ],
       "extras": [],
-      "topes": "No se publican máximos de litros ni de importe por repostaje.",
-      "caduca": "2026-11-30",
-      "caduca_nota": "Campaña del 15/09/2026 al 30/11/2026.",
-      "confianza": "alta",
-      "fuente": "https://www.elespanol.com/invertia/empresas/energia/20260911/moeve-duplicara-descuentos-clientes-septiembre-finales-noviembre-ctslitro/1003744380012_0.html",
-      "verificado": "2026-10-17",
+      "topes": "No se publican máximos de litros ni de importe por repostaje, ni caducidad del saldo acumulado.",
+      "caduca": "2026-12-31",
+      "caduca_nota": "Campaña del 15/09/2026 al 31/12/2026. Prorrogada desde el 30/11/2026 según comunicado de Moeve recogido por prensa el 21/10/2026.",
+      "confianza": "media",
+      "fuente": "https://www.elespanol.com/invertia/empresas/energia/20261021/moeve-amplia-diciembre-campana-descuentos-repostajes/1003744429025_0.html",
+      "confianza_nota": "Baja de alta a media en la v1.3: la única fuente sigue siendo prensa económica, y eso es «media» según nuestra propia escala. La v1.2 la marcaba alta por error.",
+      "verificado": "2026-11-02",
       "incidencias": [
-        "Fuente secundaria (prensa económica) citando a la compañía; no se localizó la página oficial con las condiciones completas."
+        "PRÓRROGA, en fuente secundaria: «Moeve ha ampliado hasta el 31 de diciembre su campaña 'Estamos Contigo'» (El Español, 21/10/2026). La fecha anterior era el 30/11/2026.",
+        "Cifras del mismo artículo, literales: «Se sigue obteniendo 10 céntimos por litro de saldo en sus repostajes» y «podrán acumular un ahorro de hasta 40 céntimos por litro de combustible, en función del uso que hagan de las distintas ventajas asociadas al programa».",
+        "MOTIVO DOCUMENTADO de que no haya fuente oficial: moeve.com bloquea la lectura automática por robots.txt. Se rechazaron los cuatro intentos (moeve.com/es, /es/particulares, /es/particulares/gow y gow.moeve.com). Ya no es que la página de condiciones no exista: es que no se puede leer desde aquí. Hace falta una comprobación a mano en un navegador.",
+        "AVISO: el artículo califica esos 10 cts de «el doble de lo habitual», lo que situaría el programa base fuera de campaña en unos 5 cts/L. No se registra porque ninguna fuente lo dice con cifra, pero es lo que habrá que buscar cuando acabe la campaña.",
+        "Siguen sin publicarse qué ventajas gow concretas hay que combinar para llegar a los 40 cts, ni el valor individual de cada una.",
+        "Para profesionales, el artículo habla de «un descuento directo de 10 céntimos por litro de combustible durante el mismo periodo» con Moeve pro direct: descuento inmediato, no saldo. Fuera del alcance de la app.",
+        "El recuadro «LO ESENCIAL» del artículo está marcado «Generado con IA». Las cifras citadas aquí se han tomado del cuerpo del texto, no de ese recuadro."
       ],
       "oficial": {
         "nombre": null,
@@ -140,7 +157,7 @@
           "id": "ultimate",
           "etiqueta": "bp Ultimate con tecnología ACTIVE",
           "cts": 10,
-          "nota": "Hasta 60 L por transacción."
+          "nota": "Hasta 60 L por transacción. La web lo liga a repostajes «de 30L o 60L»."
         }
       ],
       "extras": [
@@ -155,20 +172,24 @@
           "nota": "3,0 € en Canarias"
         }
       ],
-      "topes": "Máximo 24 €/mes, equivalente a 800 L al mes. Hasta 60 L por transacción en el tramo Ultimate.",
+      "topes": "Máximo 24 €/mes, equivalente a 800 L al mes. Hasta 60 L por transacción en el tramo Ultimate. El saldo se canjea hasta el último día del mes siguiente al de acumulación. Al canjear: el 100 % del saldo en repostajes de bp Ultimate con tecnología ACTIVE, y hasta el 20 % del importe de la transacción en el resto de carburantes bp con tecnología ACTIVE.",
       "caduca": null,
       "caduca_nota": "Programa permanente; la página no publica fechas de campaña.",
       "confianza": "alta",
       "fuente": "https://mibp.es/es/ahorro_mi_bp",
-      "verificado": "2026-10-17",
+      "verificado": "2026-11-02",
       "incidencias": [
-        "No queda claro si el tope de 24 €/mes es compartido entre el saldo por litro y los bonus fijos.",
-        "La cifra de 8 cts/L para Canarias solo aparece en una imagen, sin confirmación en el texto."
+        "Cifras confirmadas literalmente y sin cambios: «Acumula 3cts/L con todos tus repostajes», «Carburantes bp Ultimate con tecnología ACTIVE, ¡llegando hasta 10cts./L por tus repostajes de 30L o 60L!», «Si repostas de 30L a 59L: consigue un bonus de 2,1€ extra (1,5€ en Islas Canarias)» y «Si repostas 60L o más: consigue un bonus de 4,2€ extra (3€ en Islas Canarias)».",
+        "Sigue sin quedar claro si el tope de 24 €/mes es compartido entre el saldo por litro y los bonus fijos. Las T&C (4.3) lo atan sólo a la acumulación por litro del punto 4.2 y no mencionan los bonus; las notas al pie de la web, en cambio, cuelgan los 24 €/mes también de la oferta Ultimate y de la de Canarias.",
+        "Los 10 cts/L NO aparecen en las T&C, sólo en la web. Las T&C (4.2) se limitan a decir que «bp podrá incrementar los céntimos a acumular por cada litro de carburante a través de promociones que irá publicando en la web miBP». Es decir, es una promoción sin fecha de fin publicada, no una condición del programa.",
+        "Ámbito y carburantes del tramo base, según T&C 4.2: «Gasolina 95, Diesel Plus, Gasolina Ultimate y Diesel Ultimate» en «Península, Baleares, Canarias, Melilla y Andorra». El tramo de 10 cts es más estrecho: «Oferta disponible en Península, Islas Baleares y Andorra».",
+        "La cifra de 8 cts/L para Canarias sigue apareciendo sólo en el texto alternativo de una imagen («bp ultimate 8cts», bajo el rótulo «Canarias»), sin confirmación en el texto. No se registra.",
+        "Dos condiciones nuevas, de las T&C: las cuentas inactivas 24 meses pueden darse de baja y se pierde el saldo (8.4), y bp puede terminar el programa avisando con 6 meses (9.1)."
       ],
       "oficial": {
         "nombre": "Programa miBP",
         "operador": "BP OIL ESPAÑA S.A.U.",
-        "nota": "El registro declara 3 cts/L, que coincide con nuestro tramo base."
+        "nota": "El registro declara 3 cts/L (plan 13), que coincide con nuestro tramo base. No declara el tramo Ultimate."
       }
     },
     {
@@ -195,23 +216,26 @@
         }
       ],
       "extras": [],
-      "topes": "No publicados en la ficha oficial de la app.",
+      "topes": "No se publican topes de litros ni de importe en la ficha oficial de la app. disagrupo.es sí añade que no es acumulable: «En ningún caso será posible acumular un descuento obtenido por un medio de pago a ninguna otra tarjeta de descuento inmediato, fidelización o promoción» y «Sólo es válido un descuento de cualquier tipo por compra realizada».",
       "caduca": null,
       "caduca_nota": "Programa permanente; la ficha no publica fechas de campaña.",
       "confianza": "alta",
       "fuente": "https://apps.apple.com/es/app/mi-energ%C3%ADa-disa/id1599702699",
-      "verificado": "2026-10-17",
+      "verificado": "2026-11-02",
       "incidencias": [
+        "Cifras confirmadas literalmente y sin cambios: «5 céntimos de descuento por litro en carburantes DISAmax o Shell V-Power» y «3 céntimos de descuento por litro en carburantes DISAeco, Shell Fuel Save, DISA AutoGas y otros carburantes de gama básica». La ficha está al día: versión 2.1.1, de 5 de octubre.",
+        "DISCREPANCIA ABIERTA CON EL REGISTRO: el Ministerio recoge «MI ENERGIA DISA» a 10 cts/L para DISA RED DE SERVICIOS PETROLIFEROS (plan 1655), el doble de lo que publica la cadena, y a 5 cts/L para DISA PENINSULA (1659) y DISA RETAIL ATLANTICO (1656). La ficha oficial de la app no distingue por sociedad ni por territorio y sólo habla de 5 y 3 cts/L. Se mantienen 5 y 3 por la regla de decidir con la fuente de la cadena. Queda sin resolver: disagrupo.es no publica, o no deja leer, las condiciones por sociedad.",
+        "AMBIGÜEDAD DE MECANISMO, la más importante del fichero: la ficha dice «pagas menos en tus repostajes» (inmediato) pero también «podrás ver el saldo que vayas acumulando con cada pago» (saldo). Se mantiene «inmediato» porque la cifra se presenta como «descuento por litro» y porque disagrupo.es clasifica sus propias tarjetas como «de descuento inmediato», pero conviene resolverlo: es el único programa del fichero que la app presenta como bajada real de precio.",
         "CORRECCIÓN sobre la v1.0: el programa de Shell en España no es Shell GO+. Shell opera aquí mediante licencia de Grupo DISA, y el programa de descuento por litro es Mi Energía DISA.",
-        "Una promoción de DISA de mayo de 2025 anunciaba 'hasta 8 cts/L' con esta misma app; no se ha podido verificar el desglose porque disagrupo.es bloquea la lectura automática. Se registran solo los 5 y 3 cts confirmados.",
-        "Existe además Shell ClubSmart, programa de puntos operado por Grupo DISA. No publica equivalencia en céntimos por litro, así que no se puede comparar y no se registra como tramo.",
+        "Una promoción de DISA de mayo de 2025 anunciaba 'hasta 8 cts/L' con esta misma app; no se ha podido verificar el desglose porque disagrupo.es no publica las condiciones del programa. Se registran solo los 5 y 3 cts confirmados. En esta pasada se leyeron la portada de disagrupo.es y su página de tarjetas, y ninguna las recoge; el «Más información en disagrupo.es» de la ficha sigue sin destino localizado.",
+        "Shell ClubSmart sigue sin publicar equivalencia en céntimos en fuente de la cadena, pero el registro del Ministerio sí la declara: 0,5 cts/L (plan 22). No se registra como tramo, por dos motivos: es cifra del registro y no de la cadena, y medio céntimo no mueve ningún ranking.",
         "La vía Endesa 'Para Ti' (4 cts/L inmediatos, acuerdo de agosto de 2025) era una campaña de verano y caducó el 31/12/2025. No se registra como vigente.",
-        "La tarjeta Euroshell de Disa Península ofrece 6 cts/L en unas 120 estaciones y 3,5 cts/L en el resto, pero es una vía profesional por convenio, con contrato y domiciliación. Fuera del alcance de la app."
+        "La tarjeta Euroshell de Disa Península ofrece 6 cts/L en unas 120 estaciones y 3,5 cts/L en el resto, pero es una vía profesional por convenio, con contrato y domiciliación. Fuera del alcance de la app. El registro la declara, además, a sólo 2 cts/L (planes 20 y 21)."
       ],
       "oficial": {
         "nombre": "MI ENERGIA DISA",
         "operador": "DISA PENINSULA, S.L.U.",
-        "nota": "El registro declara 5 cts/L en DISA Península y Retail Atlántico, y 10 en DISA Red de Servicios."
+        "nota": "El registro declara 5 cts/L en DISA Península (1659) y DISA Retail Atlántico (1656), y 10 cts/L en DISA Red de Servicios Petrolíferos (1655). Los 5 coinciden con nuestro tramo premium; los 10 no los respalda ninguna fuente de la cadena."
       }
     },
     {
@@ -222,9 +246,16 @@
         "GALP"
       ],
       "tipo": "desconocido",
-      "tipo_nota": "No determinado. Las fuentes antiguas hablaban de 'descuento directo por litro'; la app actual solo habla de puntos canjeables.",
+      "tipo_nota": "Mecanismo sin determinar: NO CONSTA si estos céntimos bajan el importe al pagar o se acumulan después. El programa principal de Mundo Galp es de puntos; esta es la «oferta base» del Anexo I de su información legal, sin fecha de vigencia publicada.",
       "requiere": "App Mundo Galp.",
-      "tramos": [],
+      "tramos": [
+        {
+          "id": "premium",
+          "etiqueta": "Evologic, HVO o GLP",
+          "cts": 10,
+          "nota": "Sólo gamas premium. Para «el resto de productos» el Anexo I declara 5 cent/litro, pero no nombra gasolina ni gasóleo, así que ese tramo no se registra."
+        }
+      ],
       "extras": [
         {
           "etiqueta": "Cupón por invitar a un nuevo cliente",
@@ -232,21 +263,26 @@
           "nota": "Máximo 30 L por repostaje. Hasta 10 invitaciones. Se recibe cuando el invitado reposta."
         }
       ],
-      "topes": "30 L por repostaje en el cupón de invitación. Para el resto, no publicados.",
+      "topes": "Anexo I de la información legal: «200 litros al mes», «3 repostajes al día», «40 litros por transacción», y «Los descuentos no son acumulables entre sí; en cada transacción solo se puede aplicar un descuento». El cupón de invitación: máximo 30 L por repostaje y 10 invitaciones.",
       "caduca": null,
-      "confianza": "sin_confirmar",
-      "fuente": "https://mundogalp.galp.com/Homepage.aspx",
-      "verificado": "2026-10-17",
+      "confianza": "media",
+      "fuente": "https://mundogalp.galp.com/KM_Web_FE/LegalInfoEntry.aspx?IsNewUser=False",
+      "verificado": "2026-11-02",
       "incidencias": [
-        "Segunda pasada de verificación sin éxito. Las condiciones oficiales mencionan descuentos en gasolina y gasóleo (apartado 8.3) pero SIN cifras. Lo único con cifra verificable es el cupón de invitación.",
-        "Toda la documentación con cifras por litro (10 cts base, 15 cts premium, 15/20 cts nuevos usuarios, 35/40 cts con solar) procede de notas de prensa y artículos de 2022 y 2023. La campaña que detallaban terminaba el 31 de octubre de 2023.",
-        "Señal en contra de que siga vigente: la ficha de la app, actualizada en diciembre de 2025, solo describe 'descuentos y recompensas' mediante puntos, sin ningún céntimo por litro.",
-        "Conclusión: la app NO debe mostrar un descuento por litro de Galp. Resolver esto requiere instalar la app y registrarse, que es lo único que expone las condiciones particulares."
+        "NOVEDAD: por primera vez aparece una cifra por litro en fuente oficial viva. El Anexo I de la información legal de Mundo Galp declara una «oferta base u oferta de entrada» con dos líneas literales: «10 cent/litro en combustibles Evologic, HVO y GLP» y «5 cent/litro en el resto de productos».",
+        "DECISIÓN DE SERGIO, 06/11/2026: sube de sin_confirmar a media, con un único tramo de 10 cts para Evologic, HVO y GLP. Se registra sólo esa cifra, que es la inequívoca. El tramo de 5 cts queda fuera porque «el resto de productos» no nombra gasolina ni gasóleo, que es justo lo que echa el conductor medio.",
+        "LO QUE SE ACEPTA AL MOSTRARLO, y conviene no perder de vista: (a) la oferta no lleva fecha de inicio ni de fin, y el propio Anexo I dice «Cada descuento tendrá un plazo de vigencia individual definido en cada caso»; (b) se declara adaptable al usuario («podrá ser adaptada a la situación concreta del Usuario», «Galp se reserva el derecho de modificar la adjudicación de descuentos en cualquier momento»); (c) el mecanismo no consta, y como el programa no se declara «inmediato», la cabecera de la app lo rotulará «en saldo» sin que ninguna fuente lo diga. La nota de tipo lo advierte justo debajo, pero la cabecera seguirá diciéndolo: arreglarlo pide una línea en promos.js.",
+        "El cupón de invitación sigue publicado y es lo único con cifra y condiciones claras: «Recibirán un descuento de hasta 15 cts/L válido para un repostaje de máximo 30 litros», «Recibirás tu descuento cuando la persona que invitaste realice la transacción» y «Máximo puedes invitar a 10 personas».",
+        "El programa principal sigue siendo de puntos, sin equivalencia publicada en céntimos: «Con los carburantes normales obtienes 5 puntos por cada litro» y «Con los carburantes Premium obtienes 10 puntos por cada litro».",
+        "El apartado 8.3 de las condiciones generales sigue sin cifras: «A título meramente enunciativo y no limitativo, Mundo Galp podrá otorgar descuentos: (a) por compras de gasolina y gasóleo realizadas en la red de estaciones de servicio Galp adheridas a la Herramienta». El 8.4 remite al Anexo I, que es donde están las cifras: ahí estaba el error de las dos pasadas anteriores, que buscaron en el 8.3.",
+        "La portada de mundogalp.galp.com arrastra un banner caducado: «10 cts/L de descuento para ti ... Válido hasta 28/02/2023». Ignorado.",
+        "galp.com/es/es y galp.com/es/es/particulares/mundo-galp devuelven un marcador de «página en obras»: no sirven como fuente.",
+        "Las cifras de 2022-2023 que circulan (10 cts base, 15 premium, 15/20 nuevos usuarios, 35/40 con solar) siguen descartadas: eran de una campaña terminada el 31/10/2023."
       ],
       "oficial": {
         "nombre": null,
         "operador": "GALP ENERGÍA ESPAÑA S.A.",
-        "nota": "Mundo Galp no consta; de Galp constan tarjetas de flota y acuerdos bancarios."
+        "nota": "Mundo Galp no consta; de Galp constan tarjetas de flota y acuerdos bancarios (AHORRING 3 cts/L, ABANCA 5 %, ING 3 %, LIDL 4 %, TWYP 4 %, TOPii 4 %)."
       }
     },
     {
@@ -270,9 +306,11 @@
       "caduca": null,
       "confianza": "media",
       "fuente": "https://www.adslzone.net/noticias/ciencia/descuento-gasolineras-2026-apps-promocion/",
-      "verificado": "2026-10-17",
+      "verificado": "2026-11-02",
       "incidencias": [
-        "Fuente secundaria. Al ser una cadena low-cost ya barata de salida, el impacto en el ranking es marginal."
+        "Fuente secundaria. Al ser una cadena low-cost ya barata de salida, el impacto en el ranking es marginal.",
+        "ballenoil.es ha dejado de permitir la lectura automática: /promociones/, /terminos-promociones-app/, /bases-promocion-1euro/ y /faqs/ devuelven error de cliente. No se ha podido sustituir la fuente secundaria por la oficial en esta pasada.",
+        "En el índice de búsqueda figuran una página de bases oficiales de la promoción de 1 € (ballenoil.es/bases-promocion-1euro/) y otra de «La Ruleta de Ballenoil», pero no se ha leído su texto, así que no se registra ninguna cifra nueva. Pendiente de comprobar a mano si «La Ruleta» da algo cuantificable por litro."
       ],
       "oficial": {
         "nombre": null,
