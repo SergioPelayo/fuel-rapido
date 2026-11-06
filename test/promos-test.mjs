@@ -32,7 +32,7 @@ function check(name, cond, extra = '') {
 const ids = () => Promos.programas().map(p => p.id).sort().join(',');
 
 console.log('--- El fichero de datos ---');
-check('promociones.json es la v1.2', FICHERO._version === '1.2', FICHERO._version);
+check('promociones.json es la v1.3', FICHERO._version === '1.3', FICHERO._version);
 check('Cada programa declara con qué plan oficial se contrasta, o que no consta',
       FICHERO.programas.every(p => p.oficial && 'nombre' in p.oficial && p.oficial.nota));
 check('Trae los seis programas', FICHERO.programas.length === 6, String(FICHERO.programas.length));
@@ -45,15 +45,21 @@ check('Ningún rótulo pertenece a dos programas', (() => {
   return Object.values(v).every(n => n === 1);
 })());
 
-console.log('\n--- Qué se muestra hoy (17/10/2026) ---');
-Promos.cargar(FICHERO, '2026-10-17');
-check('Se muestran cinco programas', Promos.programas().length === 5, ids());
-check('Mundo Galp queda fuera por no estar verificado',
-      !Promos.programas().some(p => p.id === 'mundo_galp'), ids());
+console.log('\n--- Qué se muestra hoy (02/11/2026) ---');
+Promos.cargar(FICHERO, '2026-11-02');
+check('Se muestran los seis programas', Promos.programas().length === 6, ids());
+check('Mundo Galp ya entra: subió a confianza media en la revisión del 02/11',
+      Promos.programas().some(p => p.id === 'mundo_galp'), ids());
+check('Pero no se declara inmediato, porque su mecanismo no consta',
+      Promos.programa('mundo_galp').tipo === 'desconocido', Promos.programa('mundo_galp').tipo);
+check('Y sólo promete la gama premium, que es la única cifra inequívoca del Anexo I',
+      Promos.programa('mundo_galp').tramos.length === 1 &&
+      /Evologic/.test(Promos.programa('mundo_galp').tramos[0].etiqueta),
+      JSON.stringify(Promos.programa('mundo_galp').tramos));
 check('Ballenoil entra aunque no tenga tramos, porque tiene promoción fija',
       Promos.programas().some(p => p.id === 'ballenoil'));
-check('Los ocultos se explican', Promos.ocultos('2026-10-17').some(o => /Galp/.test(o.nombre) && /sin verificar/.test(o.motivo)),
-      JSON.stringify(Promos.ocultos('2026-10-17')));
+check('Hoy no hay nada oculto: ni sin verificar ni caducado',
+      Promos.ocultos('2026-11-02').length === 0, JSON.stringify(Promos.ocultos('2026-11-02')));
 
 console.log('\n--- Emparejado de rótulos del Ministerio ---');
 check('REPSOL → Waylet', Promos.para('REPSOL')?.id === 'waylet');
@@ -69,7 +75,7 @@ check('Rótulo real con prefijo: «E.S. REPSOL LOS BARRIOS» → Waylet',
       Promos.para('E.S. REPSOL LOS BARRIOS')?.id === 'waylet');
 check('Rótulo con tildes y signos: «Estación Cepsa, S.A.» → Moeve gow',
       Promos.para('Estación Cepsa, S.A.')?.id === 'moeve_gow');
-check('GALP no empareja: está sin confirmar', Promos.para('GALP') === null);
+check('GALP → Mundo Galp', Promos.para('GALP')?.id === 'mundo_galp');
 check('PLENOIL no tiene programa', Promos.para('PLENOIL') === null);
 check('PETROPRIX no tiene programa', Promos.para('PETROPRIX') === null);
 check('Rótulo vacío no revienta', Promos.para('') === null && Promos.para(null) === null);
@@ -100,11 +106,15 @@ Promos.elegir('waylet', 'coche');
 Promos.elegir('moeve_gow', 'base');
 Promos.elegir('mibp', 'base');
 Promos.elegir('mi_energia_disa', 'premium');
+Promos.elegir('mundo_galp', 'premium');
 check('Waylet es saldo', Promos.aviso('REPSOL').tipo === 'saldo' && Promos.aviso('REPSOL').inmediato === false);
 check('Moeve gow es saldo', Promos.aviso('CEPSA').inmediato === false);
 check('Mi BP es saldo', Promos.aviso('BP').inmediato === false);
 check('Mi Energía DISA es el único inmediato',
       Promos.aviso('SHELL').inmediato === true && Promos.aviso('SHELL').tipo === 'inmediato');
+check('Mundo Galp no se cuela como inmediato, y su nota avisa de que no se sabe',
+      Promos.aviso('GALP').inmediato === false && /no consta/i.test(Promos.aviso('GALP').tipoNota),
+      Promos.aviso('GALP').tipoNota.slice(0, 60));
 check('El aviso explica la naturaleza del descuento',
       /saldo/i.test(Promos.aviso('REPSOL').tipoNota), Promos.aviso('REPSOL').tipoNota.slice(0, 50));
 check('Mi BP arrastra su tope mensual', /24/.test(Promos.aviso('BP').topes), Promos.aviso('BP').topes);
@@ -113,7 +123,7 @@ console.log('\n--- Ninguna cifra sale de la nada ---');
 const delFichero = new Set();
 FICHERO.programas.forEach(p => (p.tramos || []).forEach(t => delFichero.add(p.id + ':' + t.cts)));
 check('Todo céntimo mostrado está escrito en el fichero',
-      ['REPSOL', 'CEPSA', 'BP', 'SHELL'].every(r => {
+      ['REPSOL', 'CEPSA', 'BP', 'SHELL', 'GALP'].every(r => {
         const a = Promos.aviso(r);
         return a.cts === 0 || delFichero.has(a.id + ':' + a.cts);
       }));
@@ -125,27 +135,28 @@ check('Ballenoil no promete céntimos, sino su euro de bienvenida', (() => {
 })());
 
 console.log('\n--- Lo caducado desaparece solo ---');
-Promos.cargar(FICHERO, '2026-11-05');
-check('El 5 de noviembre Waylet ya no se muestra (caducó el 31/10)',
+Promos.cargar(FICHERO, '2026-12-05');
+check('El 5 de diciembre Waylet ya no se muestra (la promo acabó el 30/11)',
       !Promos.programas().some(p => p.id === 'waylet'), ids());
-check('Y se explica por qué', Promos.ocultos('2026-11-05').some(o => /Waylet/.test(o.nombre) && /caducada/.test(o.motivo)),
-      JSON.stringify(Promos.ocultos('2026-11-05').filter(o => /Waylet/.test(o.nombre))));
+check('Y se explica por qué', Promos.ocultos('2026-12-05').some(o => /Waylet/.test(o.nombre) && /caducada/.test(o.motivo)),
+      JSON.stringify(Promos.ocultos('2026-12-05').filter(o => /Waylet/.test(o.nombre))));
 check('Al desaparecer, se limpia del perfil del usuario', !Promos.activo('waylet'));
 check('REPSOL deja de emparejar', Promos.para('REPSOL') === null);
-check('Moeve gow sigue vivo hasta el 30/11', Promos.programas().some(p => p.id === 'moeve_gow'));
-Promos.cargar(FICHERO, '2026-12-05');
-check('El 5 de diciembre tampoco está Moeve gow',
+check('Moeve gow sigue vivo hasta el 31/12', Promos.programas().some(p => p.id === 'moeve_gow'));
+Promos.cargar(FICHERO, '2027-01-05');
+check('El 5 de enero tampoco está Moeve gow',
       !Promos.programas().some(p => p.id === 'moeve_gow'), ids());
-check('Los permanentes aguantan: Mi BP y Mi Energía DISA',
-      Promos.programas().some(p => p.id === 'mibp') && Promos.programas().some(p => p.id === 'mi_energia_disa'), ids());
+check('Los permanentes aguantan: Mi BP, Mi Energía DISA y Mundo Galp',
+      Promos.programas().some(p => p.id === 'mibp') && Promos.programas().some(p => p.id === 'mi_energia_disa') &&
+      Promos.programas().some(p => p.id === 'mundo_galp'), ids());
 
 console.log('\n--- La app avisa cuando la revisión se queda vieja ---');
-Promos.cargar(FICHERO, '2026-10-17');
-check('Hoy la revisión tiene 0 días', Promos.dias('2026-10-17') === 0, String(Promos.dias('2026-10-17')));
-check('A los 30 días aún no avisa', Promos.vencida('2026-11-16') === false);
-check('A los 45 días justos aún no avisa', Promos.vencida('2026-12-01') === false, String(Promos.dias('2026-12-01')));
-check('A los 46 días avisa', Promos.vencida('2026-12-02') === true, String(Promos.dias('2026-12-02')));
-check('Cuenta bien los días', Promos.dias('2026-12-05') === 49, String(Promos.dias('2026-12-05')));
+Promos.cargar(FICHERO, '2026-11-02');
+check('Hoy la revisión tiene 0 días', Promos.dias('2026-11-02') === 0, String(Promos.dias('2026-11-02')));
+check('A los 30 días aún no avisa', Promos.vencida('2026-12-02') === false);
+check('A los 45 días justos aún no avisa', Promos.vencida('2026-12-17') === false, String(Promos.dias('2026-12-17')));
+check('A los 46 días avisa', Promos.vencida('2026-12-18') === true, String(Promos.dias('2026-12-18')));
+check('Cuenta bien los días', Promos.dias('2026-12-21') === 49, String(Promos.dias('2026-12-21')));
 
 console.log('\n--- Si el fichero falta o viene roto, la app no se rompe ---');
 check('Sin fichero, lista vacía', Promos.cargar(null).length === 0 && Promos.hayDatos() === false);
@@ -194,7 +205,7 @@ check('Anota la fecha de lectura', /^\d{4}-\d{2}-\d{2}T/.test(REG._leido), REG._
 check('Y avisa de que el registro no lleva fechas de validez', /no sustituyen/i.test(REG._aviso));
 
 console.log('\n--- Contraste: qué confirma el registro y qué no ---');
-Promos.cargar(FICHERO, '2026-10-17');
+Promos.cargar(FICHERO, '2026-11-02');
 check('Sin registro cargado no hay contraste', Promos.contraste().length === 0 && Promos.hayOficiales() === false);
 Promos.cargarOficiales(REG);
 check('Con registro cargado, hay contraste', Promos.hayOficiales() === true);
@@ -208,6 +219,8 @@ check('Waylet: no figura en el registro, y se dice',
       porId.waylet.estado === 'no_consta', JSON.stringify(porId.waylet));
 check('Moeve gow tampoco', porId.moeve_gow.estado === 'no_consta');
 check('Ballenoil tampoco', porId.ballenoil.estado === 'no_consta');
+check('Y Mundo Galp tampoco: su oferta base no está declarada al Ministerio',
+      porId.mundo_galp.estado === 'no_consta', JSON.stringify(porId.mundo_galp));
 check('El contraste NO altera ninguna cifra mostrada',
       Promos.programa('mibp').tramos[0].cts === 3 && Promos.programa('mi_energia_disa').tramos[0].cts === 5);
 check('Un programa cuyo plan desaparezca del registro se marca para revisar', (() => {
