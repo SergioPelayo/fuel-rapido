@@ -28,6 +28,13 @@
        la captura horaria de precios, que es el activo de verdad.
      · Se refresca una vez al día, no cada hora: esto cambia muy despacio.
 
+   Dos fechas, que no son lo mismo:
+     · _leido       cuándo cambió por última vez la lista de planes.
+     · _comprobado  cuándo se leyó por última vez el registro con éxito.
+   Hacen falta las dos. Con una sola, un fichero con fecha vieja no distingue
+   «el registro no cambia» de «el bot lleva dos semanas fallando en blando»,
+   que es justo lo que no se pudo descartar en la revisión del 02/11/2026.
+
    Variables de entorno (para pruebas):
      FUEL_PLANES_SOURCE   fichero XML local en vez de la red
      FUEL_PLANES_FORCE    '1' para saltarse el intervalo de refresco
@@ -41,6 +48,7 @@ import path from 'node:path';
 const URL_REGISTRO = 'https://geoportalgasolineras.es/geoportal/rest/discountPlans';
 const DESTINO      = 'data/planes-oficiales.json';
 const REFRESCO_H   = 20;          // margen holgado para que entre una vez al día
+const SELLO_DIAS   = 7;           // cada cuánto se refresca _comprobado aunque nada cambie
 
 const ahora = () => (process.env.FUEL_STAMP ? new Date(process.env.FUEL_STAMP) : new Date());
 
@@ -122,7 +130,7 @@ async function main() {
   if (existsSync(DESTINO) && process.env.FUEL_PLANES_FORCE !== '1') {
     try {
       const previo = JSON.parse(await readFile(DESTINO, 'utf8'));
-      const horas = (hoy - new Date(previo._leido)) / 3600000;
+      const horas = (hoy - new Date(previo._comprobado || previo._leido)) / 3600000;
       if (horas < REFRESCO_H) {
         console.log(`· Registro de planes leído hace ${horas.toFixed(1)} h. No toca.`);
         return;
@@ -154,6 +162,7 @@ async function main() {
             '(sólo unos pocos), así que pueden estar obsoletos. No sustituyen a promociones.json.',
     _fuente: URL_REGISTRO,
     _leido: hoy.toISOString(),
+    _comprobado: hoy.toISOString(),
     _total: planes.length,
     _utiles: planes.filter(p => p.util).length,
     _operadores: [...new Set(planes.map(p => p.operador).filter(Boolean))].sort(),
@@ -168,7 +177,18 @@ async function main() {
     try {
       const previo = JSON.parse(await readFile(DESTINO, 'utf8'));
       if (JSON.stringify(previo.planes) === cuerpo) {
-        console.log(`· Registro sin cambios (${planes.length} planes). No se reescribe.`);
+        /* El registro no ha cambiado. No reescribimos el fichero entero, para no
+           ensuciar el histórico con un commit diario sin contenido, pero sí
+           refrescamos el sello de comprobación cada SELLO_DIAS días: así la
+           antigüedad del fichero nunca miente en más de una semana. */
+        const dias = (hoy - new Date(previo._comprobado || previo._leido)) / 86400000;
+        if (dias < SELLO_DIAS) {
+          console.log(`· Registro sin cambios (${planes.length} planes). No se reescribe.`);
+          return;
+        }
+        previo._comprobado = hoy.toISOString();
+        await writeFile(DESTINO, JSON.stringify(previo, null, 1) + '\n');
+        console.log(`· Registro sin cambios (${planes.length} planes). Sello refrescado.`);
         return;
       }
     } catch (e) { /* seguimos y reescribimos */ }
